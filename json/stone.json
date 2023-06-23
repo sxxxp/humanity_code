@@ -1,0 +1,146 @@
+{
+  "1": {
+    "name": "돌",
+    "rank": "F",
+    "weight": 0.01,
+    "price": 1
+  },
+  "2": {
+    "name": "석탄",
+    "rank": "F",
+    "weight": 0.05,
+    "price": 7
+  },
+  "3": {
+    "name": "철 원석",
+    "rank": "E",
+    "weight": 0.1,
+    "price": 20
+  },
+  "4": {
+    "name": "금 원석",
+    "rank": "E",
+    "weight": 0.3,
+    "price": 65
+  },
+  "5": {
+    "name": "에메랄드 원석",
+    "rank": "D",
+    "weight": 0.9,
+    "price": 700
+  },
+  "6": {
+    "name": "다이아몬드 원석",
+    "rank": "D",
+    "weight": 1.0,
+    "price": 1000
+  },
+  "7": {
+    "name": "루비 원석",
+    "rank": "D",
+    "weight": 1.3,
+    "price": 1500
+  },
+  "8": {
+    "name": "은 원석",
+    "rank": "F",
+    "weight": 0.3,
+    "price": 90
+  },
+  "9": {
+    "name": "석영 원석",
+    "rank": "F",
+    "weight": 0.35,
+    "price": 135
+  },
+  "10": {
+    "name": "사파이어",
+    "rank": "E",
+    "weight": 0.7,
+    "price": 300
+  },
+  "11": {
+    "name": "자수정",
+    "rank": "E",
+    "weight": 0.8,
+    "price": 450
+  },
+  "12": {
+    "name": "납 원석",
+    "rank": "E",
+    "weight": 0.5,
+    "price": 400
+  },
+  "13": {
+    "name": "무지갯빛 돌",
+    "rank": "E",
+    "weight": 0.5,
+    "price": 550
+  },
+  "14": {
+    "name": "오렌지빛 에메랄드",
+    "rank": "E",
+    "weight": 1,
+    "price": 1200
+  },
+  "15": {
+    "name": "지옥 수문장의 심장",
+    "rank": "S",
+    "weight": 66.6,
+    "price": 66666
+  },
+  "16": {
+    "name": "석회암",
+    "rank": "E",
+    "weight": 0.35,
+    "price": 450
+  },
+  "17": {
+    "name": "레드 다이아",
+    "rank": "E",
+    "weight": 1.5,
+    "price": 2350
+  },
+  "18": {
+    "name": "흑요석",
+    "rank": "E",
+    "weight": 1.7,
+    "price": 2650
+  },
+  "19": {
+    "name": "미확인 화석",
+    "rank": "E",
+    "weight": 0.5,
+    "price": 750
+  },
+  "20": {
+    "name": "티타늄",
+    "rank": "E",
+    "weight": 1.2,
+    "price": 1950
+  },
+  "21": {
+    "name": "벽옥",
+    "rank": "E",
+    "weight": 2,
+    "price": 4000
+  },
+  "22": {
+    "name": "옥",
+    "rank": "E",
+    "weight": 0.5,
+    "price": 975
+  },
+  "23": {
+    "name": "용암 광석",
+    "rank": "E",
+    "weight": 1.5,
+    "price": 3500
+  },
+  "24": {
+    "name": "호박석",
+    "rank": "E",
+    "weight": 2,
+    "price": 6000
+  }
+}

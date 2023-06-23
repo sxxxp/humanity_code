@@ -1,0 +1,170 @@
+{
+  "1": {
+    "name": "강화서",
+    "description": "일반적인 강화서다.",
+    "rank": "F",
+    "price": 100,
+    "trade": true
+  },
+  "2": {
+    "name": "요일광산 입장권",
+    "description": "요일광산에 입장할 수 있는 아이템이다.",
+    "rank": "X",
+    "price": 0,
+    "trade": false
+  },
+  "3": {
+    "name": "강화서",
+    "description": "일반적인 강화서다.",
+    "rank": "F",
+    "price": 50,
+    "trade": false
+  },
+  "4": {
+    "name": "주간광산 입장권",
+    "description": "주간광산에 입장할 수 있는 아이템이다.",
+    "rank": "X",
+    "price": 0,
+    "trade": false
+  },
+  "5": {
+    "name": "광석의 핵",
+    "description": "광석의 힘이 담겨있는 핵이다.",
+    "rank": "F",
+    "price": 150,
+    "trade": true
+  },
+  "6": {
+    "name": "동물 가죽",
+    "description": "광석이 왜 가지고 있는지 모를 가죽이다.",
+    "rank": "F",
+    "price": 30,
+    "trade": true
+  },
+  "7": {
+    "name": "빛나는 강화서",
+    "description": "강화에 이용되는 강화서다.",
+    "rank": "E",
+    "price": 500,
+    "trade": false
+  },
+  "8": {
+    "name": "스텟 초기화 스크롤",
+    "description": "스텟초기화에 사용되는 스크롤이다.",
+    "rank": "S",
+    "price": 0,
+    "trade": false
+  },
+  "9": {
+    "name": "닉네임 변경권",
+    "description": "닉네임이 마음에 안드신다구요? 닉네임을 바꿔보세요!",
+    "rank": "S",
+    "price": 0,
+    "trade": false
+  },
+  "10": {
+    "name": "반짝이는 돌",
+    "description": "무지개색 총공격이다!",
+    "rank": "E",
+    "price": 400,
+    "trade": true
+  },
+  "11": {
+    "name": "지옥 초대장",
+    "description": "지옥에 초대받을 수 있는 초대장이다.",
+    "rank": "B",
+    "price": 3000,
+    "trade": true
+  },
+  "12": {
+    "name": "지옥 초대장",
+    "description": "지옥에 초대받을 수 있는 초대장이다.",
+    "rank": "B",
+    "price": 1500,
+    "trade": false
+  },
+  "13": {
+    "name": "지옥 수문장의 징표",
+    "description": "지옥 수문장 광석을 꺾고 획득한 징표다.",
+    "rank": "A",
+    "price": 0,
+    "trade": false
+  },
+  "14": {
+    "name": "단단한 광석의 핵",
+    "description": "단단한 돌을 깨 부셨다는 증거다.",
+    "rank": "E",
+    "price": 2000,
+    "trade": false
+  },
+  "15": {
+    "name": "단단한 악세서리 교환권",
+    "description": "단단한 돌의 부산품이다.",
+    "rank": "E",
+    "price": 3000,
+    "trade": true
+  },
+  "16": {
+    "name": "지식의 서",
+    "description": "한번 읽는 것 만으로도 대량의 지식을 얻을 수 있다는 전설의 책 (exp+(본인레벨+환생*10)*750)",
+    "rank": "S",
+    "price": 3000,
+    "trade": false
+  },
+  "17": {
+    "name": "보증 수표",
+    "description": "딱히 엄청난 기능이 있지는 않지만 비싼 가격에 판매 할 수 있다.",
+    "rank": "S",
+    "price": 100000,
+    "trade": false
+  },
+  "18": {
+    "name": "지식의 서 조각",
+    "description": "모으다 보면 좋은 일이 생길지도...?",
+    "rank": "A",
+    "price": 10,
+    "trade": false
+  },
+  "19": {
+    "name": "식어버린 용암 정수",
+    "description": "상온에 너무 오래 보관한 듯한 용암 정수다.",
+    "rank": "E",
+    "price": 1500,
+    "trade": false
+  },
+  "20": {
+    "name": "미지근한 광석 파편",
+    "description": "상온에 너무 오래 보관한 듯한 광석 파편이다.",
+    "rank": "E",
+    "price": 350,
+    "trade": true
+  },
+  "21": {
+    "name": "따뜻한 용암 정수",
+    "description": "약간 따스한 온기가 흘러나오는 용암 정수다",
+    "rank": "E",
+    "price": 2000,
+    "trade": false
+  },
+  "22": {
+    "name": "따끈한 광석 파편",
+    "description": "방금 오븐에서 구워낸 것 같은 따끈함을 지닌 광석 파편이다.",
+    "rank": "E",
+    "price": 500,
+    "trade": true
+  },
+  "23": {
+    "name": "녹아버린 용암 정수",
+    "description": "너무 고온에 있었던 탓인지 녹아버렸다.",
+    "rank": "E",
+    "price": 3500,
+    "trade": false
+  },
+  "24": {
+    "name": "액체 광석 파편",
+    "description": "광석 파편이 녹아서 액체가 되어버렸다.",
+    "rank": "E",
+    "price": 750,
+    "trade": true
+  }
+}

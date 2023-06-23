@@ -1,0 +1,439 @@
+{
+  "weapon": [
+    {
+      "초심자 곡괭이": {
+        "name": "초심자 곡괭이",
+        "rank": "F",
+        "level": 10,
+        "power": "7 15",
+        "damage": "100 120",
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087364454859145267/novice_pickaxe.png",
+        "required": {
+          "5": 2,
+          "6": 10,
+          "1": 5,
+          "money": 1000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "지옥 수문장의 곡괭이": {
+        "name": "지옥 수문장의 곡괭이",
+        "rank": "A",
+        "level": 70,
+        "power": "510 530",
+        "damage": "100 150",
+        "trade": false,
+        "url": "",
+        "required": {
+          "13": 100,
+          "money": 1000000
+        },
+        "percent": 100
+      }
+    }
+  ],
+  "wear": [
+    {
+      "광부모자": {
+        "name": "광부모자",
+        "rank": "F",
+        "level": 5,
+        "power": "1 3",
+        "hp": "4 10",
+        "str": "2 5",
+        "collection": "기본 방어구",
+        "part": 1,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087292892671922208/miner_hat.png",
+        "required": {
+          "5": 1,
+          "6": 5,
+          "money": 400
+        },
+        "percent": 100
+      }
+    },
+    {
+      "광부갑옷": {
+        "name": "광부갑옷",
+        "rank": "F",
+        "level": 10,
+        "power": "1 3",
+        "hp": "10 15",
+        "str": "4 7",
+        "collection": "기본 방어구",
+        "part": 2,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087929900175982603/miner_chestplate.png",
+        "required": {
+          "5": 1,
+          "6": 15,
+          "money": 600
+        },
+        "percent": 100
+      }
+    },
+    {
+      "광부장갑": {
+        "name": "광부장갑",
+        "rank": "F",
+        "level": 10,
+        "power": "3 6",
+        "hp": "4 7",
+        "str": "2 3",
+        "collection": "기본 방어구",
+        "part": 3,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087933878787903508/miner_glove.png",
+        "required": {
+          "5": 2,
+          "6": 15,
+          "money": 400
+        },
+        "percent": 100
+      }
+    },
+    {
+      "가죽가방": {
+        "name": "가죽가방",
+        "rank": "F",
+        "level": 15,
+        "power": "1 2",
+        "hp": "6 12",
+        "str": "7 13",
+        "collection": "기본 방어구",
+        "part": 5,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1096324997993209916/miner_backpack.png",
+        "required": {
+          "6": 50,
+          "5": 1,
+          "money": 500
+        },
+        "percent": 100
+      }
+    },
+    {
+      "광부신발": {
+        "name": "광부신발",
+        "rank": "F",
+        "level": 15,
+        "power": "2 3",
+        "hp": "5 10",
+        "str": "2 4",
+        "collection": "기본 방어구",
+        "part": 4,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1097770582952661113/miner_shoe.png",
+        "required": {
+          "6": 35,
+          "5": 2,
+          "money": 700
+        },
+        "percent": 100
+      }
+    },
+    {
+      "단단한 목걸이": {
+        "name": "단단한 목걸이",
+        "rank": "E",
+        "level": 30,
+        "power": "10 15",
+        "hp": "20 25",
+        "str": "5 10",
+        "collection": "단단한 악세서리",
+        "part": 6,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167847847952485/hard_stone_necklace.png",
+        "required": {
+          "15": 1,
+          "money": 3000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "단단한 반지": {
+        "name": "단단한 반지",
+        "rank": "E",
+        "level": 25,
+        "power": "10 17",
+        "hp": "21 26",
+        "str": "5 12",
+        "collection": "단단한 악세서리",
+        "part": 7,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167848162541588/hard_stone_ring.png",
+        "required": {
+          "15": 1,
+          "money": 4000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "단단한 귀걸이": {
+        "name": "단단한 귀걸이",
+        "rank": "E",
+        "level": 30,
+        "power": "15 20",
+        "hp": "24 30",
+        "str": "7 15",
+        "collection": "단단한 악세서리",
+        "part": 8,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167847575343104/hard_stone_earing.png",
+        "required": {
+          "15": 1,
+          "money": 5000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "식어버린 용암 투구": {
+        "name": "식어버린 용암 투구",
+        "rank": "E",
+        "level": 40,
+        "power": "10 15",
+        "hp": "30 45",
+        "str": "10 15",
+        "collection": "용암 갑옷",
+        "part": 1,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119162702871408710/cold_magma_helmet.png",
+        "required": {
+          "19": 3,
+          "20": 15,
+          "money": 15000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "미지근한 용암 갑옷": {
+        "name": "미지근한 용암 갑옷",
+        "rank": "E",
+        "level": 45,
+        "power": "20 30",
+        "hp": "60 90",
+        "str": "20 25",
+        "collection": "용암 갑옷",
+        "part": 2,
+        "trade": false,
+        "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119162702561026088/magma_chestplate.png",
+        "required": {
+          "21": 3,
+          "22": 15,
+          "money": 25000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "뜨거운 용암 장화": {
+        "name": "뜨거운 용암 장화",
+        "rank": "E",
+        "level": 50,
+        "power": "25 35",
+        "hp": "85 100",
+        "str": "15 25",
+        "collection": "용암 갑옷",
+        "part": 4,
+        "trade": false,
+        "url": "",
+        "required": {
+          "23": 3,
+          "24": 15,
+          "money": 45000
+        },
+        "percent": 100
+      }
+    }
+  ],
+
+  "item": [
+    {
+      "빛나는 강화서": {
+        "name": "빛나는 강화서",
+        "code": "7",
+        "percent": 95,
+        "rank": "E",
+        "amount": 1,
+        "required": {
+          "1": 3,
+          "6": 2,
+          "money": 50
+        }
+      }
+    },
+    {
+      "단단한 악세서리 교환권": {
+        "name": "단단한 악세서리 교환권",
+        "code": "15",
+        "percent": 100,
+        "rank": "E",
+        "amount": 1,
+        "required": {
+          "14": 10,
+          "money": 5000
+        }
+      }
+    },
+    {
+      "반짝이는 돌": {
+        "name": "반짝이는 돌",
+        "code": "10",
+        "percent": 100,
+        "rank": "E",
+        "amount": 5,
+        "required": {
+          "14": 1,
+          "money": 500
+        }
+      }
+    },
+    {
+      "강화서": {
+        "name": "강화서",
+        "code": "3",
+        "percent": 100,
+        "rank": "F",
+        "amount": 3,
+        "required": {
+          "7": 1,
+          "money": 50
+        }
+      }
+    },
+    {
+      "지식의 서": {
+        "name": " 지식의서",
+        "code": "16",
+        "percent": 100,
+        "rank": "S",
+        "amount": 1,
+        "required": {
+          "18": 5,
+          "money": 10000
+        }
+      }
+    }
+  ],
+  "title": [
+    {
+      "초보자": {
+        "name": "초보자",
+        "description": "기본적인 칭호",
+        "rank": "F",
+        "level": 1,
+        "power": 5,
+        "hp": 15,
+        "str": 5,
+        "crit": 0,
+        "crit_damage": 0,
+        "damage": 0,
+        "trade": false,
+        "required": {
+          "1": 5,
+          "5": 2,
+          "6": 10,
+          "money": 1000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "날렵한": {
+        "name": "날렵한",
+        "description": "날렵한 자들을 위한 칭호",
+        "rank": "E",
+        "level": 20,
+        "power": 10,
+        "hp": 15,
+        "str": 5,
+        "crit": 5,
+        "crit_damage": 10,
+        "damage": 0,
+        "trade": false,
+        "required": {
+          "1": 15,
+          "5": 10,
+          "6": 50,
+          "7": 5,
+          "money": 3000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "강인한": {
+        "name": "강인한",
+        "description": "강인한 자들을 위한 칭호",
+        "rank": "E",
+        "level": 20,
+        "power": 15,
+        "hp": 30,
+        "str": 15,
+        "crit": 0,
+        "crit_damage": 0,
+        "damage": 0,
+        "trade": false,
+        "required": {
+          "1": 10,
+          "5": 10,
+          "6": 40,
+          "7": 4,
+          "money": 5000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "따뜻한 아이스 아메리카노": {
+        "name": "따뜻한 아이스 아메리카노",
+        "description": "아이스 아메리카노를 따뜻하게 먹는 사람을 위한 칭호",
+        "rank": "E",
+        "level": 40,
+        "power": 25,
+        "hp": 50,
+        "str": 20,
+        "crit": 5,
+        "crit_damage": 0,
+        "damage": 0,
+        "trade": false,
+        "required": {
+          "7": 20,
+          "10": 5,
+          "19": 2,
+          "20": 15,
+          "money": 10000
+        },
+        "percent": 100
+      }
+    },
+    {
+      "수문장": {
+        "name": "수문장",
+        "description": "지옥을 경험하고 온 자",
+        "rank": "A",
+        "level": 70,
+        "power": 150,
+        "hp": 400,
+        "str": 100,
+        "crit": 30,
+        "crit_damage": 100,
+        "damage": 100,
+        "trade": false,
+        "required": {
+          "13": 50,
+          "money": 500000
+        },
+        "percent": 100
+      }
+    }
+  ]
+}
