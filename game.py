@@ -523,7 +523,7 @@ class Mining:
     def __init__(self, user: User, floor: int, interaction: Interaction):
         self.floor = floor
         self.user = user
-        self.user.effect = {'🗡': 3, '🩸': 2, '🩹': 4}
+        self.user.effect = {}
         self.interaction = interaction
         self.exp = 0
         self.inventory = {'util': {}, 'use': {}, 'stone': {}}
@@ -993,6 +993,7 @@ class Mining:
         if self.user.stat['hp'] < 0:
             self.user.stat['hp'] = 0
             embed.set_footer(text="체력이 없습니다!")
+        self.user.effect = {}
         embed.add_field(
             name=f"중량: {round(self.stone_result(),2)}/{self.user.stat['str']}\n❤{ round(self.user.stat['hp'],2)}", value='\u200b', inline=False)
         embed.add_field(name=f"얻은 경험치 : {self.exp}",
@@ -1028,6 +1029,11 @@ async def gold_up(interaction: Interaction, 배율: float):
         global MONEY_EARN
         MONEY_EARN = 배율
         await interaction.response.send_message(f"성공적으로 {배율}배율로 조정 되었습니다.", ephemeral=True)
+
+
+@tree.command(name="현재획득량확인", description="경험치, 골드 획득량을 확인할수 있습니다.")
+async def show_exp_gold_up(interaction: Interaction):
+    await interaction.response.send_message(content=f"경험치 획득량: {EXP_EARN}배\n골드 획득량: {MONEY_EARN}배", ephemeral=True)
 
 
 @tree.command(name="채광", description="채광")

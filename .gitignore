@@ -1,4 +1,5 @@
 .env
-main.py
-gpt.py
-test.py
+
+./main.py
+./gpt.py
+./test.py
