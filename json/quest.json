@@ -1,8 +1,69 @@
 {
-  "킬": {
-    "amount": 15,
-    "reward": {
-      "util": []
+  "normal": {
+    "1": {
+      "type": "up",
+      "code": "stat",
+      "amount": 1,
+      "gold": 150,
+      "exp": 30,
+      "util": "3-1",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/스텟 명령어를 통해 스테이터스를 올려 보세요!",
+      "next": "2"
+    },
+    "2": {
+      "type": "do",
+      "code": "reinforce",
+      "amount": 1,
+      "gold": 200,
+      "exp": 50,
+      "util": "3-2",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/강화 명령어를 통해 무기를 강화해 보세요!",
+      "next": "3"
+    },
+    "3": {
+      "type": "kill",
+      "code": "석탄 광석",
+      "amount": 1,
+      "gold": 300,
+      "exp": 150,
+      "util": "3-4 2-1 5-1",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/채광 명령어를 통해 기본광산에 입장해 석탄 광석을 캐보세요!",
+      "next": "4"
+    },
+    "4": {
+      "type": "entrance",
+      "code": "요일광산",
+      "amount": 1,
+      "gold": 500,
+      "exp": 250,
+      "util": "6-5",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/채광 명령어를 통해 요일광산에 입장해보세요!",
+      "next": "5"
+    },
+    "5": {
+      "type": "make-wear",
+      "code": "광부모자",
+      "amount": 1,
+      "gold": 350,
+      "exp": 300,
+      "util": "3-5",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/제작소 명령어를 통해 광부모자를 만들어 보세요!",
+      "next": ""
     }
   }
 }

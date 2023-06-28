@@ -24,6 +24,12 @@ STAT_PER_LEVEL = 2
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
+class questTypeEnum(Enum):
+    일반 = 'normal'
+    일일 = 'daily'
+    주간 = 'weekly'
+
+
 class miningEnum(Enum):
     '''
     광산 열거형
@@ -44,6 +50,15 @@ class miningEnum(Enum):
     요일광산EASY = -datetime.datetime.now(tz=KST).weekday()
     주간광산EASY = -8
     지옥광산 = -7
+
+
+class statEnum(Enum):
+    힘 = 'power'
+    중량 = 'str'
+    체력 = 'hp'
+    방어력 = 'def'
+    마나 = 'mana'
+    크리티컬데미지 = 'crit_damage'
 
 
 def makeDictionary(keys: list, values: tuple):
@@ -121,8 +136,8 @@ def getStatus(id: int):
     else:
         option = {}
     cur.execute(
-        "SELECT power,hp*5,str/10,crit,crit_damage/50,mana*2,avoid,point FROM user_stat WHERE id=%s", id)
-    stat = makeDictionary(['power', 'hp', 'str', 'crit',
+        "SELECT power,hp*5,str/10,def/5,crit,crit_damage/50,mana*2,avoid,point FROM user_stat WHERE id=%s", id)
+    stat = makeDictionary(['power', 'hp', 'str', 'def', 'crit',
                           'crit_damage', 'mana', 'avoid', 'point'], cur.fetchone())
     final = {'power': 0, 'hp': 25, "str": 0, 'def': 0, 'damage': 0, 'crit': 0, 'mana': 0, 'avoid': 0,
              'crit_damage': 0, 'maxhp': 0, 'point': 0}
@@ -131,6 +146,7 @@ def getStatus(id: int):
             final[key] += value
     final['maxhp'] = final['hp']
     final['cur_power'] = final['power']
+    final['def'] = float(final['def'])
     final['cur_def'] = final['def']
     if final['damage'] == 0:
         final['damage'] = 1
@@ -245,6 +261,7 @@ item = getJson('./json/makeItem.json')
 util = getJson('./json/util.json')
 rein = getJson('./json/reinforce.json')
 stone = getJson('./json/stone.json')
+quest = getJson('./json/quest.json')
 
 
 class MyClient(discord.Client):
@@ -340,8 +357,10 @@ class User:
             "malgunbd.ttf", 40-len(str(self.stat['cur_power'])))
         draw.text((585, 355), format(
             int(self.stat['cur_power']), ','), anchor="mm", font=power_font)
+        def_font = ImageFont.truetype(
+            "malgunbd.ttf", 40-len(str(self.stat['cur_power'])))
         draw.text((740, 355), str(
-            self.stat['cur_def']), anchor="mm", font=level_font)
+            self.stat['cur_def']), anchor="mm", font=def_font)
         hp_font = ImageFont.truetype(
             "malgunbd.ttf", 40-len(str(self.stat['maxhp'])))
         draw.text((895, 355), format(
@@ -365,9 +384,11 @@ class User:
         with io.BytesIO() as image_binary:
             image.save(image_binary, 'PNG')
             image_binary.seek(0)
-            await interaction.response.send_message(file=discord.File(fp=image_binary, filename="userInfo.png"), ephemeral=True)
+            return discord.File(fp=image_binary, filename="userInfo.png")
 
-    async def getExp(self, exp: int = 0):
+    async def getExp(self, exp: int = 0, type: str = "normal"):
+        if type != "normal":
+            EXP_EARN = 1
         cur = con.cursor()
         cur.execute(
             "UPDATE user_info SET exp = exp + %s WHERE id = %s", (exp*EXP_EARN, self.id))
@@ -378,7 +399,9 @@ class User:
         con.commit()
         cur.close()
 
-    async def getMoney(self, money: int = 0):
+    async def getMoney(self, money: int = 0, type: str = "normal"):
+        if type != "normal":
+            MONEY_EARN = 1
         cur = con.cursor()
         cur.execute(
             "UPDATE user_info SET money = money + %s WHERE id = %s", (money*MONEY_EARN, self.id))
@@ -444,6 +467,26 @@ class User:
         con.commit()
         cur.close()
 
+    async def statusUp(self, stat: statEnum, point: int):
+        cur = con.cursor()
+        if point < 0:
+            return '0보다 작은 수는 쓸 수 없습니다.'
+        elif self.stat['point'] >= point:
+            cur.execute(
+                f"UPDATE user_stat SET {stat.value}={stat.value} + %s, point = point - %s WHERE id = %s", (point, point, self.id))
+            cur.execute(
+                "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'up' AND code = 'stat' ", (point, self.id))
+            con.commit()
+            cur.close()
+            return f"성공적으로 **{stat.name}** 스텟을 **{point}** 만큼 올렸습니다."
+        else:
+            return f"스텟이 모자랍니다. 현재 **{point}** 포인트 보유중"
+
+    async def getEntrance(self, floor: str):
+        cur = con.cursor()
+        cur.execute(
+            "UPDATE quest SET now = now +1 WHERE id = %s AND code = %s AND `type` = 'entrance'", (self.id, floor))
+
     async def isExistItem(self, code: int):
         '''
         user_item에 아이템 있는지 확인
@@ -493,6 +536,8 @@ class User:
                     "UPDATE user_info SET exp = %s, rebirth=rebirth+1 WHERE id = %s", (self.userInfo['exp'], self.id))
                 cur.execute(
                     "UPDATE user_stat SET point = point + %s WHERE id = %s", (STAT_PER_REBIRTH, self.id))
+                cur.execute(
+                    "UPDATE quest SET now = now + 1 WHERE id = %s AND `type`='up' AND code = 'rebirth'", (self.id))
                 self.getItem(8, 1)
                 cur.close()
                 con.commit()
@@ -502,10 +547,146 @@ class User:
                 "UPDATE user_info SET level = level + %s , exp = %s WHERE id = %s", (num, self.userInfo['exp'], self.id))
             cur.execute(
                 "UPDATE user_stat SET point = point + %s WHERE id = %s", (num*STAT_PER_LEVEL, self.id))
+            cur.execute(
+                "UPDATE quest SET now = now + %s WHERE id = %s AND `type`='up' AND code = 'level'", (num, self.id))
+            cur.execute(
+                "UPDATE quest SET now = 1 WHERE id = %s AND `type`='level' AND code <= %s ", self.userInfo['level']+num)
         cur.close()
         con.commit()
 
         return num
+
+
+class Quest:
+    def __init__(self, user: User):
+        self.user = user
+        self.article_font = ImageFont.truetype("malgunbd.ttf", 60)
+        self.page = 0
+        self.quest = []
+
+    async def questInfo(self, type: str, code: str, amount: int):
+        if type == "kill":
+            text = f"{code} {amount}회 처치"
+        elif type == "level":
+            text = f"{amount}레벨 달성하기"
+        elif type == "get-stone":
+            text = f"{stone[code]['name']} {amount}개 획득하기"
+        elif type == "handover-util":
+            text = f"{util[code]['name']} {amount}개 제출하기"
+        elif type == "up":
+            if code == "level":
+                text = f"{amount} 레벨업 하기"
+            elif code == "stat":
+                text = f"스텟 {amount}개 올리기"
+        elif type == "do":
+            if code == "reinforce":
+                text = f"강화 {amount}번 진행하기"
+        elif type == "get":
+            if code == "gold":
+                text = f"{amount} 골드 획득하기"
+            elif code == "exp":
+                text = f"{amount} 경험치 획득하기"
+            elif code == "util":
+                text = f"기타아이템 {amount}개 획득하기"
+            elif code == "use":
+                text = f"소비아이템 {amount}개 획득하기"
+            else:
+                text = f"{util[code]['name']} {amount}개 획득하기"
+        elif type == "spend":
+            if code == "money":
+                text = f"{amount}골드 사용하기"
+        elif type == "make-wear":
+            text = f"{code} {amount}회 제작하기"
+        elif type == "entrance":
+            text = f"{code} {amount}회 입장하기"
+        return text
+
+    async def getQuest(self, type: str):
+        if self.page < 0:
+            self.page = 0
+        image = Image.open("image/quest.png")
+        cur = con.cursor()
+        cur.execute(
+            "SELECT `key`,`type`,`code`,amount,now,now>=amount AS sucess FROM quest WHERE id = %s AND quest_type = %s ORDER BY sucess DESC, date LIMIT %s,3", (self.user.id, type, self.page*3))
+        quests = cur.fetchall()
+        cur.close()
+        if not quests:
+            self.page -= 1
+            with io.BytesIO() as image_binary:
+                image.save(image_binary, 'PNG')
+                image_binary.seek(0)
+                return discord.File(fp=image_binary, filename="normalQuest.png")
+        self.quest = quests
+        for idx, i in enumerate(quests):
+            y_pos = [100, 370, 640]
+            text = await self.questInfo(i[1], i[2], i[3])
+            draw = ImageDraw.Draw(image)
+            draw.text((100, y_pos[idx]), text, font=self.article_font)
+            now = f"{i[4]}/{i[3]}"
+            now_font = ImageFont.truetype("malgunbd.ttf", 60-len(now))
+            draw.text(
+                (1535, y_pos[idx]+70), "클리어!" if i[-1] else now, fill='red' if i[-1] else 'white', anchor="mm", font=now_font)
+            try:
+                description = quest[type][str(i[0])]['description']
+            except KeyError:
+                description = ""
+            description_font = ImageFont.truetype("malgunbd.ttf", 40)
+            draw.text((100, y_pos[idx]+70), description, font=description_font)
+            page_font = ImageFont.truetype("malgunbd.ttf", 45)
+            draw.text((844, 880), f"{self.page+1}페이지",
+                      anchor="mm", font=page_font)
+        with io.BytesIO() as image_binary:
+            image.save(image_binary, 'PNG')
+            image_binary.seek(0)
+            return discord.File(fp=image_binary, filename="normalQuest.png")
+
+    async def makeQuest(self, type: str, key: str):
+        quest_info: dict = quest[type][key]
+        cur = con.cursor()
+        del quest_info['description']
+        del quest_info['next']
+        insert_value = list(quest_info.values())
+        insert_value.insert(0, key)
+        insert_value.append(self.user.id)
+        insert_value.append(0)
+        insert_value.append(datetime.datetime.now())
+        insert_value.append(type)
+        cur.execute(
+            "INSERT INTO quest VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ", insert_value)
+        con.commit()
+        cur.close()
+
+    async def claimQuest(self):
+        cur = con.cursor()
+        cur.execute(
+            "SELECT `key`,`type`,`code`,amount,gold,exp,util,`use`,weapon,wear,quest_type FROM quest WHERE id = %s AND now>=amount ORDER BY quest_type", self.user.id)
+        cleared_quest = cur.fetchall()
+        normal_text = ''
+        daily_text = ''
+        weekly_text = ''
+        for i in cleared_quest:
+            quest_info = quest[i[-1]][str(i[0])]
+            if quest_info['next']:
+                await self.makeQuest(i[-1], quest_info['next'])
+            quest_name = await self.questInfo(i[1], i[2], i[3])
+            await self.user.getMoney(i[4], "quest")
+            await self.user.getExp(i[5], "quest")
+            util_text = ""
+            for j in quest_info['util'].split(" "):
+                code, value = j.split("-")
+                await self.user.getItem(code, int(value))
+                util_text += f"{util[code]['name']} {value}개 "
+            if i[-1] == "normal":
+                normal_text += f"```{quest_name} 퀘스트 클리어!\n"
+                normal_text += f"{i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
+            elif i[-1] == "daily":
+                daily_text += f"```{quest_name} 퀘스트 클리어!\n"
+                daily_text += f"{i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
+            cur.execute("DELETE FROM quest WHERE id = %s AND `key` = %s AND quest_type = %s",
+                        (self.user.id, i[0], i[-1]))
+        con.commit()
+        cur.close()
+        return normal_text, daily_text, weekly_text
 
 
 class Mining:
@@ -520,7 +701,7 @@ class Mining:
         -8: {'code': 4, 'value': 1, 'cnt': 6},
         -7: {'code': 11, 'value': 1, 'cnt': 10}}
 
-    def __init__(self, user: User, floor: int, interaction: Interaction):
+    def __init__(self, user: User, floor: miningEnum, interaction: Interaction):
         self.floor = floor
         self.user = user
         self.user.effect = {}
@@ -535,17 +716,19 @@ class Mining:
         elif await self.haveTicket():
             self.user.where = "광산"
             await self.interaction.response.send_message("광산에 진입중...!", ephemeral=True)
+            await self.user.getEntrance(self.floor.name)
             await self.setup(self.interaction)
         else:
-            await self.interaction.response.send_message(f"**{util[str(Mining.ticket[self.floor]['code'])]['name']}**이 없습니다.", ephemeral=True)
+            await self.interaction.response.send_message(f"**{util[str(Mining.ticket[self.floor.value]['code'])]['name']}**이 없습니다.", ephemeral=True)
 
     async def haveTicket(self):
-        if self.floor in Mining.ticket.keys():
-            floor = Mining.ticket[self.floor]
+        if self.floor.value in Mining.ticket.keys():
+            floor = Mining.ticket[self.floor.value]
             amount = await self.user.isExistItem(floor['code'])
             if amount >= floor['value']:
                 await self.user.getItem(floor['code'], -floor['value'])
                 self.cnt = floor['cnt']
+
                 return True
             else:
                 return False
@@ -781,17 +964,20 @@ class Mining:
             if not getSuccess(self.parent.enemy['avoid'], 100):
                 if getSuccess(self.parent.user.stat['crit'], 100):
                     self.parent.enemy['hp'] -= damage * \
-                        (1+self.parent.user.stat['crit_damage'])
-                    text += f"**크리티컬!!!** **{round(damage * (1+self.parent.user.stat['crit_damage']),2)}** 피해를 입혔습니다!\n"
+                        (1+self.parent.user.stat['crit_damage']
+                         ) - self.parent.enemy['def']
+                    text += f"**크리티컬!!!** **{round(damage * (1+self.parent.user.stat['crit_damage']) - self.parent.enemy['def'],2)}** 피해를 입혔습니다!\n"
                 else:
-                    self.parent.enemy['hp'] -= damage
-                    text += f"**{damage}** 피해를 입혔습니다!\n"
+                    self.parent.enemy['hp'] -= damage - \
+                        self.parent.enemy['def']
+                    text += f"**{damage-self.parent.enemy['def']}** 피해를 입혔습니다!\n"
 
             else:
                 text += f"적이 **회피** 했습니다!\n"
             if not getSuccess(self.parent.user.stat['avoid'], 100):
                 e_damage = self.parent.enemy['power'] * \
-                    (self.parent.enemy['damage'])
+                    (self.parent.enemy['damage']) - \
+                    self.parent.user.stat['def']
                 self.parent.user.stat['hp'] -= e_damage
                 text += f"**{round(e_damage,2)}** 피해를 받았습니다!\n"
             else:
@@ -968,12 +1154,12 @@ class Mining:
     async def make_enemy(self):
         cur = con.cursor()
         cur.execute(
-            "SELECT percent FROM enemy WHERE floor = %s", self.floor)
+            "SELECT percent FROM enemy WHERE floor = %s", self.floor.value)
         percent = cur.fetchall()
         percent = [value[0] for value in percent]
         idx = checkSuccess(percent)
         if idx == -1:
-            embed = discord.Embed(title=miningEnum(self.floor).name)
+            embed = discord.Embed(title=self.floor.name)
             embed.add_field(name="아무것도 만나지 못했습니다.",
                             value="\u200b", inline=False)
             await self.interaction.edit_original_response(embed=embed, view=None)
@@ -981,7 +1167,7 @@ class Mining:
             await self.setup()
         else:
             cur.execute(
-                "SELECT name,power,hp,def,avoid,exp,item_code,item_percent,item_amount,util_code,util_percent,util_amount,use_code,use_percent,use_amount,url FROM enemy WHERE floor = %s  LIMIT %s, 1", (self.floor, idx))
+                "SELECT name,power,hp,def,avoid,exp,item_code,item_percent,item_amount,util_code,util_percent,util_amount,use_code,use_percent,use_amount,url FROM enemy WHERE floor = %s  LIMIT %s, 1", (self.floor.value, idx))
             self.enemy = makeDictionary(['name', 'power', 'hp', 'def', 'avoid', 'exp', 'item_code', 'item_percent',
                                         'item_amount', 'util_code', 'util_percent', 'util_amount', 'use_code', 'use_percent', 'use_amount', 'url'], cur.fetchone())
             self.enemy['damage'] = 1
@@ -989,7 +1175,7 @@ class Mining:
             self.enemy['effect'] = {}
 
     async def setup(self, interaction: Interaction):
-        embed = discord.Embed(title=miningEnum(self.floor).name)
+        embed = discord.Embed(title=self.floor.name)
         if self.user.stat['hp'] < 0:
             self.user.stat['hp'] = 0
             embed.set_footer(text="체력이 없습니다!")
@@ -1012,7 +1198,9 @@ class Mining:
 
 @tree.command(name="정보", description="정보")
 async def info(interaction: Interaction):
-    await User(interaction.user.id).Info(interaction)
+    await interaction.response.send_message("정보를 불러오는 중이에요!", ephemeral=True)
+    image = await User(interaction.user.id).Info(interaction)
+    await interaction.edit_original_response(content="", attachments=[image])
 
 
 @tree.command(name="경험치획득량변경", description="운영자전용명령어")
@@ -1036,8 +1224,82 @@ async def show_exp_gold_up(interaction: Interaction):
     await interaction.response.send_message(content=f"경험치 획득량: {EXP_EARN}배\n골드 획득량: {MONEY_EARN}배", ephemeral=True)
 
 
+@tree.command(name="스텟", description="스텟 올리기")
+async def stat(interaction: Interaction, 스텟: statEnum, 포인트: int):
+    message = await User(interaction.user.id).statusUp(스텟, 포인트)
+    await interaction.response.send_message(message, ephemeral=True)
+
+
+@tree.command(name="퀘스트", description="퀘스트입니다.")
+async def qeust(interaction: Interaction):
+    quest = Quest(User(interaction.user.id))
+
+    class questView(ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
+            self.type = 'normal'
+
+        @ui.button(label="일반", emoji="📗")
+        async def normal_quest(self, interaction: Interaction, button: ui.Button):
+            self.type = 'normal'
+            image = await quest.getQuest(self.type)
+            await interaction.response.edit_message(attachments=[image])
+
+        @ui.button(label="일일", emoji="⏰")
+        async def daily_quest(self, interaction: Interaction, button: ui.Button):
+            self.type = "daily"
+            image = await quest.getQuest(self.type)
+            await interaction.response.edit_message(attachments=[image])
+
+        @ui.button(label="주간", emoji="📅")
+        async def weekly_quest(interaction: Interaction, button: ui.Button):
+            pass
+
+        @ui.button(emoji="⬅", row=2, style=ButtonStyle.blurple)
+        async def previous_page(self, interaction: Interaction, button: ui.Button):
+            quest.page -= 1
+            image = await quest.getQuest(self.type)
+            if image:
+                await interaction.response.edit_message(attachments=[image])
+
+        @ui.button(emoji="➡", row=2, style=ButtonStyle.blurple)
+        async def next_page(self, interaction: Interaction, button: ui.Button):
+            quest.page += 1
+            image = await quest.getQuest(self.type)
+            await interaction.response.edit_message(attachments=[image])
+
+        @ui.button(label="보상수령하기", emoji="🎁", row=2, style=ButtonStyle.green)
+        async def claim(self, interaction: Interaction, button: ui.Button):
+            embed = discord.Embed(title="퀘스트보상")
+            normal_text, daily_text, weekly_text = await quest.claimQuest()
+            if not normal_text + weekly_text + daily_text:
+                print(normal_text, weekly_text, daily_text)
+                embed.add_field(name="수령가능한 퀘스트 보상이 없습니다.", value="\u200b")
+            if normal_text:
+                embed.add_field(name="일반", value=normal_text, inline=False)
+            if daily_text:
+                embed.add_field(name="일일", value=daily_text, inline=False)
+            if weekly_text:
+                embed.add_field(name="주간", value=weekly_text, inline=False)
+            image = await quest.getQuest(self.type)
+            await interaction.response.edit_message(attachments=[image], embed=embed)
+    await interaction.response.send_message(file=await quest.getQuest("normal"), view=questView(), ephemeral=True)
+
+
+@tree.command(name="퀘스트생성", description="운영자 전용 명령어")
+async def make_quest(interaction: Interaction, 아이디: str, 키: int, 타입: questTypeEnum):
+    if User(interaction.user.id).userInfo['role'] == 99:
+        user = User(아이디)
+        quest = Quest(user)
+        quest.makeQuest(타입, 키)
+        await interaction.response.send_message(f"성공적으로 {user.userInfo['name']}님에게 퀘스트를 생성했습니다.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"권한이 없습니다.", ephemeral=True)
+
+
 @tree.command(name="채광", description="채광")
 async def mining(interaction: Interaction, 광산: miningEnum):
-    mine = Mining(User(interaction.user.id), 광산.value, interaction)
+    mine = Mining(User(interaction.user.id), 광산, interaction)
     await mine.validity()
+
 client.run(os.environ['token'])
