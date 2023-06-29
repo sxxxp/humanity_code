@@ -24,6 +24,31 @@ STAT_PER_LEVEL = 2
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
+class reinEnum(Enum):
+    '''
+    강화 part 열거형
+    ---------------
+    `무기 : 0`
+    `투구 : 1`
+    `갑옷 : 2`
+    `장갑 : 3`
+    `신발 : 4`
+    `망토 : 5`
+    `목걸이 : 6`
+    `반지 : 7`
+    `귀걸이 : 8`
+    '''
+    무기 = 0
+    투구 = 1
+    갑옷 = 2
+    장갑 = 3
+    신발 = 4
+    망토 = 5
+    목걸이 = 6
+    반지 = 7
+    귀걸이 = 8
+
+
 class questTypeEnum(Enum):
     일반 = 'normal'
     일일 = 'daily'
@@ -223,6 +248,35 @@ def getRandomValue2(val_range: str):
     return random.randint(int(a), int(b))
 
 
+def translateName(name: str):
+    '''
+    column 명은 한글로 한글은 column 으로 변환
+    ----------------------------------------
+    `return power <=> 힘`
+    '''
+    column = ['power', 'hp', 'str', 'crit', 'crit_damage',
+              'damage', 'weapon', 'wear', 'title', 'item', 'money', 'level', 'collection']
+    korean = ['힘', '체력', '중량', '크리티컬 확률', '크리티컬 데미지',
+              '데미지', '무기', '방어구', '칭호', '기타', '골드', '레벨', '컬렉션']
+    if name in column:
+        return korean[column.index(name)]
+    else:
+        return column[korean.index(name)]
+
+
+def getPartRein(part: int):
+    '''
+    방어구 스텟 확인
+    ---------------
+    - 0: 무기
+    - parts=["힘","체력","중량","힘","체력","중량","체력","체력","체력"]
+
+    `return parts[part]`
+    '''
+    parts = ['힘', '체력', '중량', '힘', '체력', '중량', '체력', '체력', '체력']
+    return parts[part]
+
+
 def getInfo(id: int):
     """
     유저 정보 불러오기
@@ -388,30 +442,39 @@ class User:
 
     async def getExp(self, exp: int = 0, type: str = "normal"):
         if type != "normal":
-            EXP_EARN = 1
+            e_e = 1
+        else:
+            e_e = EXP_EARN
         cur = con.cursor()
         cur.execute(
-            "UPDATE user_info SET exp = exp + %s WHERE id = %s", (exp*EXP_EARN, self.id))
+            "UPDATE user_info SET exp = exp + %s WHERE id = %s", (exp*e_e, self.id))
         cur.execute(
-            "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = exp ", (exp*EXP_EARN, self.id))
-        self.userInfo['exp'] += exp*EXP_EARN
-        await self.is_levelup()
+            "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = exp ", (exp*e_e, self.id))
+        self.userInfo['exp'] += exp*e_e
         con.commit()
         cur.close()
+        return await self.is_levelup()
 
     async def getMoney(self, money: int = 0, type: str = "normal"):
         if type != "normal":
-            MONEY_EARN = 1
+            m_e = 1
+        else:
+            m_e = MONEY_EARN
         cur = con.cursor()
-        cur.execute(
-            "UPDATE user_info SET money = money + %s WHERE id = %s", (money*MONEY_EARN, self.id))
         if money > 0:
             cur.execute(
-                "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = 'money'", (money*MONEY_EARN, self.id))
+                "UPDATE user_info SET money = money + %s WHERE id = %s", (money*m_e, self.id))
+
+            cur.execute(
+                "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = 'money'", (money*m_e, self.id))
+            self.userInfo['money'] += money*m_e
         else:
             cur.execute(
-                "UPDATE quest SET now = now + %s WHERE id = %s AND `type`= spend AND code = 'money'", (-money, self.id))
-        self.userInfo['money'] += money*EXP_EARN
+                "UPDATE user_info SET money = money + %s WHERE id = %s", (money, self.id))
+
+            cur.execute(
+                "UPDATE quest SET now = now + %s WHERE id = %s AND `type`= 'spend' AND code = 'money'", (-money, self.id))
+            self.userInfo['money'] += money
         con.commit()
         cur.close()
 
@@ -478,6 +541,7 @@ class User:
                 "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'up' AND code = 'stat' ", (point, self.id))
             con.commit()
             cur.close()
+            await self.sync_stat()
             return f"성공적으로 **{stat.name}** 스텟을 **{point}** 만큼 올렸습니다."
         else:
             return f"스텟이 모자랍니다. 현재 **{point}** 포인트 보유중"
@@ -486,6 +550,13 @@ class User:
         cur = con.cursor()
         cur.execute(
             "UPDATE quest SET now = now +1 WHERE id = %s AND code = %s AND `type` = 'entrance'", (self.id, floor))
+
+    async def getReinforce(self):
+        cur = con.cursor()
+        cur.execute(
+            "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'do' AND `code` = 'reinforce'", (self.id))
+        con.commit()
+        cur.close()
 
     async def isExistItem(self, code: int):
         '''
@@ -497,23 +568,30 @@ class User:
         `return amount`
         '''
         cur = con.cursor()
-        utils = getJson('./json/util.json')
         try:
-            utils[str(code)]
+            util[str(code)]
         except:
             return -1
         cur.execute(  # code에 해당하는 아이템이 있는지 확인
             "SELECT amount FROM user_item WHERE id = %s AND item_id = %s", (self.id, code))
         amount = cur.fetchone()
         if not amount:  # 없으면 아이템 insert
-            cur.execute("INSERT INTO user_item VALUES(%s,%s,%s)",
-                        (code, 0, self.id))
+            cur.execute("INSERT INTO user_item VALUES(%s,%s,%s,%s,%s)",
+                        (code, util[str(code)]['name'], 0, util[str(code)]['trade'], self.id))
             con.commit()
             cur.close()
             return 0
         else:
             cur.close()
             return int(amount[0])
+
+    async def isExistItemName(self, name: str):
+        cur = con.cursor()
+        cur.execute(
+            "SELECT SUM(amount) FROM user_item WHERE name = %s AND id= %s", (name, self.id))
+        amount = cur.fetchone()[0]
+        cur.close()
+        return int(amount)
 
     async def is_levelup(self):
         '''
@@ -524,11 +602,10 @@ class User:
         '''
         if self.userInfo['rebirth'] == MAX_REBIRTH:
             return 0
-        level_info = getJson('./json/level.json')
         num = 0
         cur = con.cursor()
-        while level_info[str(self.userInfo['rebirth'])][str(self.userInfo['level']+num)] <= self.userInfo['exp']:
-            self.userInfo['exp'] -= level_info[str(
+        while level[str(self.userInfo['rebirth'])][str(self.userInfo['level']+num)] <= self.userInfo['exp']:
+            self.userInfo['exp'] -= level[str(
                 self.userInfo['rebirth'])][str(self.userInfo['level']+num)]
             num += 1
             if self.userInfo['level']+num >= MAX_LEVEL+1 and self.userInfo['rebirth'] != MAX_REBIRTH:
@@ -539,10 +616,12 @@ class User:
                 cur.execute(
                     "UPDATE quest SET now = now + 1 WHERE id = %s AND `type`='up' AND code = 'rebirth'", (self.id))
                 self.getItem(8, 1)
+                self.userInfo['rebirth'] += 1
                 cur.close()
                 con.commit()
                 return MAX_LEVEL+1
         if num > 0:
+            self.userInfo['level'] += num
             cur.execute(
                 "UPDATE user_info SET level = level + %s , exp = %s WHERE id = %s", (num, self.userInfo['exp'], self.id))
             cur.execute(
@@ -550,11 +629,47 @@ class User:
             cur.execute(
                 "UPDATE quest SET now = now + %s WHERE id = %s AND `type`='up' AND code = 'level'", (num, self.id))
             cur.execute(
-                "UPDATE quest SET now = 1 WHERE id = %s AND `type`='level' AND code <= %s ", self.userInfo['level']+num)
+                "UPDATE quest SET now = 1 WHERE id = %s AND `type`='level' AND code <= %s ", (self.id, self.userInfo['level']))
+
         cur.close()
         con.commit()
 
         return num
+
+    async def useNotTradeFirst(self, name: str, amount: int):
+        '''
+        교환불가능 아이템 먼저 소비
+        -------------------------
+        - name: 아이템명
+        - amount: 소비해야할 아이템 개수
+        '''
+        cur = con.cursor()
+        cur.execute(
+            "SELECT item_id,amount FROM user_item WHERE id = %s AND name = %s ORDER BY item_id ASC", (self.id, name))
+        items = cur.fetchall()
+        if len(items) == 2:
+            if items[0][1]+items[1][1] < amount:
+                return False
+            if items[0][1] <= amount:
+                cur.execute(
+                    "UPDATE user_item SET amount = 0 WHERE id = %s AND item_id = %s", (self.id, items[0][0]))
+                cur.execute("UPDATE user_item SET amount = amount - %s WHERE id = %s AND item_id = %s ",
+                            (amount-items[0][1], self.id, items[1][0]))
+            else:
+                cur.execute(
+                    "UPDATE user_item SET amount = amount - %s WHERE id = %s AND item_id = %s", (amount, self.id, items[0][0]))
+        else:
+            if len(items) == 1 and items[0][0] >= amount:
+                cur.execute(
+                    "UPDATE user_item SET amount = amount - %s WHERE id = %s AND name = %s", (amount, self.id, name))
+            else:
+                return False
+        con.commit()
+        cur.close()
+        return True
+
+    async def sync_stat(self):
+        self.stat = getStatus(self.id)
 
 
 class Quest:
@@ -568,7 +683,7 @@ class Quest:
         if type == "kill":
             text = f"{code} {amount}회 처치"
         elif type == "level":
-            text = f"{amount}레벨 달성하기"
+            text = f"{code}레벨 달성하기"
         elif type == "get-stone":
             text = f"{stone[code]['name']} {amount}개 획득하기"
         elif type == "handover-util":
@@ -611,7 +726,9 @@ class Quest:
         quests = cur.fetchall()
         cur.close()
         if not quests:
-            self.page -= 1
+            if self.page > 0:
+                self.page -= 1
+                return await self.getQuest(type)
             with io.BytesIO() as image_binary:
                 image.save(image_binary, 'PNG')
                 image_binary.seek(0)
@@ -643,12 +760,13 @@ class Quest:
     async def makeQuest(self, type: str, key: str):
         quest_info: dict = quest[type][key]
         cur = con.cursor()
-        del quest_info['description']
-        del quest_info['next']
-        insert_value = list(quest_info.values())
+        insert_value = list(quest_info.values())[:-2]
         insert_value.insert(0, key)
         insert_value.append(self.user.id)
-        insert_value.append(0)
+        if insert_value[1] == "level" and self.user.userInfo['level'] >= int(insert_value[2]):
+            insert_value.append(1)
+        else:
+            insert_value.append(0)
         insert_value.append(datetime.datetime.now())
         insert_value.append(type)
         cur.execute(
@@ -664,13 +782,14 @@ class Quest:
         normal_text = ''
         daily_text = ''
         weekly_text = ''
+        num = 0
         for i in cleared_quest:
             quest_info = quest[i[-1]][str(i[0])]
             if quest_info['next']:
                 await self.makeQuest(i[-1], quest_info['next'])
             quest_name = await self.questInfo(i[1], i[2], i[3])
             await self.user.getMoney(i[4], "quest")
-            await self.user.getExp(i[5], "quest")
+            num = await self.user.getExp(i[5], "quest")
             util_text = ""
             for j in quest_info['util'].split(" "):
                 code, value = j.split("-")
@@ -678,15 +797,156 @@ class Quest:
                 util_text += f"{util[code]['name']} {value}개 "
             if i[-1] == "normal":
                 normal_text += f"```{quest_name} 퀘스트 클리어!\n"
-                normal_text += f"{i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
+                normal_text += f"보상 : {i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
             elif i[-1] == "daily":
                 daily_text += f"```{quest_name} 퀘스트 클리어!\n"
-                daily_text += f"{i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
+                daily_text += f"보상 : {i[4]}골드 {i[5]}경험치\n{util_text}```\n\n"
             cur.execute("DELETE FROM quest WHERE id = %s AND `key` = %s AND quest_type = %s",
                         (self.user.id, i[0], i[-1]))
         con.commit()
         cur.close()
-        return normal_text, daily_text, weekly_text
+        return normal_text, daily_text, weekly_text, num
+
+
+class Reinforce:
+    def __init__(self, user: User, part: reinEnum, interaction: Interaction):
+        self.user = user
+        self.part = part
+        self.isWeapon = self.part.value == 0
+        self.interaction = interaction
+        self.reinItem = {}
+
+    async def chooseItem(self):
+        if self.reinItem:
+            return
+        cur = con.cursor()
+        if self.isWeapon:
+            cur.execute(
+                "SELECT item_id,name,upgrade,`rank`,url FROM user_weapon WHERE id = %s AND wear = 1", self.user.id)
+        else:
+            cur.execute("SELECT item_id,name,upgrade,`rank`,url FROM user_wear WHERE id = %s AND part = %s ANd wear = 1 ",
+                        (self.user.id, self.part.value))
+        reinItem = cur.fetchone()
+        self.reinItem = makeDictionary(
+            ['item_id', 'name', 'upgrade', 'rank', 'url'], reinItem) if reinItem else {}
+
+    async def validityReinforce(self):
+        await self.chooseItem()
+        rank = str(self.reinItem['rank'])
+        upgrade = str(self.reinItem['upgrade'])
+        if self.user.userInfo['money'] < rein['money'][rank][upgrade]:
+            return False, "돈이 부족합니다."
+        for i in rein['item'][rank][upgrade].split(","):
+            name, amount = i.split("/")
+            if await self.user.isExistItemName(name) < int(amount):
+                return False, "재료가 부족합니다."
+        cur = con.cursor()
+        if self.isWeapon:
+            cur.execute("SELECT COUNT(*) FROM user_weapon WHERE id = %s AND wear = 1 AND name = %s AND upgrade = %s AND `rank` = %s AND item_id = %s",
+                        (self.user.id, self.reinItem['name'], self.reinItem['upgrade'], self.reinItem['rank'], self.reinItem['item_id']))
+        else:
+            cur.execute("SELECT COUNT(*) FROM user_wear WHERE id = %s AND wear = 1 AND name = %s AND upgrade = %s AND `rank` = %s AND part = %s AND item_id = %s",
+                        (self.user.id, self.reinItem['name'], self.reinItem['upgrade'], self.reinItem['rank'], self.part.value, self.reinItem['item_id']))
+        if not cur.fetchone()[0]:
+            self.reinItem = {}
+            await self.chooseItem()
+            return False, "해당 아이템이 존재하지 않거나 정보가 잘못되었습니다."
+        return True, ""
+
+    async def doReinforce(self):
+        rank = str(self.reinItem['rank'])
+        upgrade = str(self.reinItem['upgrade'])
+        await self.user.getMoney(-rein['money'][rank][upgrade])
+        for i in rein['item'][rank][upgrade].split(","):
+            name, amount = i.split("/")
+            if not await self.user.useNotTradeFirst(name, int(amount)):
+                print("?")
+                return False
+        return True
+
+    async def successReinforce(self):
+        await self.user.getReinforce()
+        rank = str(self.reinItem['rank'])
+        upgrade = str(self.reinItem['upgrade'])
+        if await self.doReinforce() and getSuccess(rein['percent'][upgrade], 100):
+            cur = con.cursor()
+            if self.isWeapon:
+                cur.execute("UPDATE user_weapon SET power = power + %s, upgrade = upgrade + 1 WHERE id = %s AND item_id = %s",
+                            (rein['weapon'][rank][upgrade], self.user.id, self.reinItem['item_id']))
+                self.reinItem['upgrade'] += 1
+            else:
+                cur.execute("UPDATE user_wear SET `%s` = `%s` + %s WHERE id = %s AND item_id = %s AND part = %s", (translateName(getPartRein(self.part.value)),
+                            translateName(getPartRein(self.part.value)), rein['wear'][rank][upgrade], self.user.id, self.reinItem['item_id'], self.part.value))
+            await self.user.sync_stat()
+            con.commit()
+            cur.close()
+            return True
+        else:
+            return False
+
+    async def validity(self):
+        if self.user.where:
+            await self.interaction.response.send_message(f"이미 {self.user.where}에 있습니다.", ephemeral=True)
+        else:
+            await self.chooseItem()
+            if not self.reinItem:
+                return await self.interaction.response.send_message(f"장착중인 아이템이 없습니다.", ephemeral=True)
+            self.user.where = "강화소"
+            await self.interaction.response.send_message(f"강화소에 입장중..!", ephemeral=True)
+            await self.setup(self.interaction)
+
+    class setupView(ui.View):
+        def __init__(self, parent):
+            super().__init__(timeout=None)
+            self.parent = parent
+
+        @ui.button(label="강화하기", emoji="🔨", style=ButtonStyle.green)
+        async def reinforce(self, interaction: Interaction, button: ui.Button):
+            validity, message = await self.parent.validityReinforce()
+            if not validity:
+                embed: discord.Embed = await self.parent.setupEmbed()
+                embed.set_footer(text=message)
+                await interaction.response.edit_message(embed=embed)
+            else:
+                if await self.parent.successReinforce():
+                    color = 0x009900
+                    title = "강화성공!"
+                else:
+                    color = 0xff0000
+                    title = "강화실패..."
+                embed = discord.Embed(title=title, color=color)
+                await interaction.response.edit_message(embed=embed, view=None)
+                await asyncio.sleep(2)
+                await self.parent.setup(interaction)
+
+        @ui.button(label="끝내기", style=ButtonStyle.red)
+        async def end(self, interaction: Interaction, button: ui.Button):
+            self.parent.user.where = ""
+            await interaction.response.edit_message(content="강화소를 떠났습니다.", view=None, embed=None)
+            await interaction.delete_original_response()
+
+    async def setupEmbed(self):
+        rank = str(self.reinItem['rank'])
+        upgrade = str(self.reinItem['upgrade'])
+        embed = discord.Embed(
+            title=f"{self.reinItem['name']} +{self.reinItem['upgrade']} > +{self.reinItem['upgrade']+1} 강화")
+        text = "```"
+        text += f"{rein['money'][rank][upgrade]} 골드\n"
+        for i in rein['item'][rank][upgrade].split(","):
+            name, amount = i.split("/")
+            text += f"{name} {amount}개\n"
+        text += "```"
+        embed.add_field(name="재료", value=text, inline=False)
+        embed.add_field(
+            name=f"성공확률 : {rein['percent'][upgrade]}%", value=f"성공시 **{getPartRein(self.part.value)} +{rein['weapon'][rank][upgrade] if self.isWeapon else rein['wear'][rank][upgrade]}**", inline=False)
+        embed.set_thumbnail(url=self.reinItem['url'])
+        return embed
+
+    async def setup(self, interaction: Interaction):
+        try:
+            await interaction.response.edit_message(content="", embed=await self.setupEmbed(), view=self.setupView(self))
+        except discord.errors.InteractionResponded:
+            await interaction.edit_original_response(content="", embed=await self.setupEmbed(), view=self.setupView(self))
 
 
 class Mining:
@@ -838,7 +1098,7 @@ class Mining:
             value = self.parent.enemy['util_amount'].split(" ")
             utils = []
             for i in range(len(code)):
-                if getSuccess(int(percent[i]), 100):
+                if getSuccess(float(percent[i]), 100):
                     randomValue = getRandomValue2(value[i])
                     if self.parent.inventory['util'].get(code[i]):
 
@@ -857,7 +1117,7 @@ class Mining:
             value = self.parent.enemy['use_amount'].split(" ")
             uses = []
             for i in range(len(code)):
-                if getSuccess(int(percent[i]), 100):
+                if getSuccess(float(percent[i]), 100):
                     randomValue = getRandomValue2(value[i])
                     if self.parent.inventory['use'].get(code[i]):
                         self.parent.inventory['use'][code[i]
@@ -986,11 +1246,13 @@ class Mining:
 
         async def handle_win(self, interaction: Interaction):
             if self.parent.user.stat['hp'] <= 0:
+                self.parent.cnt -= 1
                 if self.parent.user.stat['hp'] >= self.parent.enemy['hp']:
                     return await self.win(interaction)
                 else:
                     return await self.lose(interaction)
             if self.parent.enemy['hp'] <= 0:
+                self.parent.cnt -= 1
                 return await self.win(interaction)
 
         @ui.button(label="⛏", row=1, style=ButtonStyle.green)
@@ -1071,7 +1333,6 @@ class Mining:
             stones = []
             for item, data in self.parent.inventory['stone'].items():
                 total_price += data * stone[item]['price']
-                print(total_price, data, stone[item]['price'])
                 stones.append(
                     (stone[item]['name'], data, stone[item]['price']))
             return stones, total_price
@@ -1084,9 +1345,9 @@ class Mining:
             level = await self.parent.user.is_levelup()
             if level:
                 if level == MAX_LEVEL+1:
-                    exp_text += f"{self.parent.user.userInfo['rebirth']+1}차 환생 달성!"
+                    exp_text += f"{self.parent.user.userInfo['rebirth']}차 환생 달성!"
                 else:
-                    exp_text += f"{level+self.parent.user.userInfo['level']}레벨 달성!"
+                    exp_text += f"{self.parent.user.userInfo['level']}레벨 달성!"
             embed.add_field(name=f"{exp_text}", value='\u200b', inline=False)
             stones, total_price = await self.stone_price()
             stone_text = ''
@@ -1185,7 +1446,7 @@ class Mining:
         embed.add_field(name=f"얻은 경험치 : {self.exp}",
                         value="\u200b", inline=False)
         if self.cnt >= 0:
-            embed.add_field(name=f"남은 탐험 기회 : {self.cnt}")
+            embed.add_field(name=f"남은 탐험 기회 : {self.cnt}", value="\u200b")
             if self.cnt == 0:
                 embed.set_footer(text="탐험 기회가 없습니다!")
         if self.stone_result() > self.user.stat['str']:
@@ -1200,7 +1461,13 @@ class Mining:
 async def info(interaction: Interaction):
     await interaction.response.send_message("정보를 불러오는 중이에요!", ephemeral=True)
     image = await User(interaction.user.id).Info(interaction)
-    await interaction.edit_original_response(content="", attachments=[image])
+
+    class view(ui.View):
+        @ui.button(label="새로고침", style=ButtonStyle.green)
+        async def reset(self, interaction: Interaction, button: ui.Button):
+            image = await User(interaction.user.id).Info(interaction)
+            await interaction.response.edit_message(attachments=[image])
+    await interaction.edit_original_response(content="", attachments=[image], view=view(timeout=None))
 
 
 @tree.command(name="경험치획득량변경", description="운영자전용명령어")
@@ -1226,7 +1493,10 @@ async def show_exp_gold_up(interaction: Interaction):
 
 @tree.command(name="스텟", description="스텟 올리기")
 async def stat(interaction: Interaction, 스텟: statEnum, 포인트: int):
-    message = await User(interaction.user.id).statusUp(스텟, 포인트)
+    user = User(interaction.user.id)
+    if user.where:
+        return await interaction.response.send_message(f"이미 {user.where}에 있어 스텟을 올릴 수 없어요.", ephemeral=True)
+    message = await user.statusUp(스텟, 포인트)
     await interaction.response.send_message(message, ephemeral=True)
 
 
@@ -1270,17 +1540,25 @@ async def qeust(interaction: Interaction):
 
         @ui.button(label="보상수령하기", emoji="🎁", row=2, style=ButtonStyle.green)
         async def claim(self, interaction: Interaction, button: ui.Button):
-            embed = discord.Embed(title="퀘스트보상")
-            normal_text, daily_text, weekly_text = await quest.claimQuest()
+            normal_text, daily_text, weekly_text, num = await quest.claimQuest()
             if not normal_text + weekly_text + daily_text:
-                print(normal_text, weekly_text, daily_text)
+                embed = discord.Embed(title="퀘스트보상", color=0xff0000)
                 embed.add_field(name="수령가능한 퀘스트 보상이 없습니다.", value="\u200b")
-            if normal_text:
-                embed.add_field(name="일반", value=normal_text, inline=False)
-            if daily_text:
-                embed.add_field(name="일일", value=daily_text, inline=False)
-            if weekly_text:
-                embed.add_field(name="주간", value=weekly_text, inline=False)
+            else:
+                embed = discord.Embed(title="퀘스트보상", color=0x009900)
+                if normal_text:
+                    embed.add_field(name="일반", value=normal_text, inline=False)
+                if daily_text:
+                    embed.add_field(name="일일", value=daily_text, inline=False)
+                if weekly_text:
+                    embed.add_field(name="주간", value=weekly_text, inline=False)
+            if num == MAX_LEVEL+1:
+                embed.add_field(
+                    name=f"{quest.user.userInfo['rebirth']}차 환생 달성!", value="\u200b", inline=False)
+            elif num:
+                embed.add_field(
+                    name=f"{quest.user.userInfo['level']}레벨 달성!", value='\u200b', inline=False)
+
             image = await quest.getQuest(self.type)
             await interaction.response.edit_message(attachments=[image], embed=embed)
     await interaction.response.send_message(file=await quest.getQuest("normal"), view=questView(), ephemeral=True)
@@ -1291,10 +1569,16 @@ async def make_quest(interaction: Interaction, 아이디: str, 키: int, 타입:
     if User(interaction.user.id).userInfo['role'] == 99:
         user = User(아이디)
         quest = Quest(user)
-        quest.makeQuest(타입, 키)
-        await interaction.response.send_message(f"성공적으로 {user.userInfo['name']}님에게 퀘스트를 생성했습니다.", ephemeral=True)
+        await quest.makeQuest(타입.value, str(키))
+        await interaction.response.send_message(f"성공적으로 {user.userInfo['nickname']}님에게 퀘스트를 생성했습니다.", ephemeral=True)
     else:
         await interaction.response.send_message(f"권한이 없습니다.", ephemeral=True)
+
+
+@tree.command(name="강화", description="강화소")
+async def reinforcement(interaction: Interaction, 부위: reinEnum):
+    reinforce = Reinforce(User(interaction.user.id), 부위, interaction)
+    await reinforce.validity()
 
 
 @tree.command(name="채광", description="채광")

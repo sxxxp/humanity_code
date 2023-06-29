@@ -32,7 +32,7 @@
       "amount": 1,
       "gold": 300,
       "exp": 150,
-      "util": "3-4 2-1 5-1",
+      "util": "2-1 3-4 5-1",
       "use": "",
       "weapon": "",
       "wear": "",
@@ -41,7 +41,7 @@
     },
     "4": {
       "type": "entrance",
-      "code": "요일광산",
+      "code": "요일광산EASY",
       "amount": 1,
       "gold": 500,
       "exp": 250,
@@ -63,7 +63,20 @@
       "weapon": "",
       "wear": "",
       "description": "/제작소 명령어를 통해 광부모자를 만들어 보세요!",
-      "next": ""
+      "next": "6"
+    },
+    "6": {
+      "type":"level",
+      "code":"10",
+      "amount":1,
+      "gold": 1500,
+      "exp": 500,
+      "util": "3-10 5-3 6-10",
+      "use":"",
+      "weapon":"",
+      "wear":"",
+      "description":"/채광 을 통해 레벨 10까지 도달해 보세요!",
+      "next":""
     }
   }
 }
