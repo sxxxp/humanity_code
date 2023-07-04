@@ -1,0 +1,23 @@
+{
+  "0": {
+    "name": "기본 곡괭이",
+    "rank": "F",
+    "level": 1,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1040198148661973022/pickaxe1.png"
+  },
+  "1": {
+    "name": "초심자 곡괭이",
+    "rank": "F",
+    "level": 10,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087364454859145267/novice_pickaxe.png"
+  },
+  "2": {
+    "name": "지옥 수문장의 곡괭이",
+    "rank": "A",
+    "level": 70,
+    "trade": false,
+    "url": ""
+  }
+}

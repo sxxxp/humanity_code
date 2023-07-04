@@ -1,0 +1,101 @@
+{
+  "1": {
+    "name": "광부모자",
+    "rank": "F",
+    "level": 5,
+    "collection": "기본 방어구",
+    "part": 1,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087292892671922208/miner_hat.png"
+  },
+  "2": {
+    "name": "광부갑옷",
+    "rank": "F",
+    "level": 10,
+    "collection": "기본 방어구",
+    "part": 2,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087929900175982603/miner_chestplate.png"
+  },
+  "3": {
+    "name": "광부장갑",
+    "rank": "F",
+    "level": 10,
+    "collection": "기본 방어구",
+    "part": 3,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087933878787903508/miner_glove.png"
+  },
+  "4": {
+    "name": "가죽가방",
+    "rank": "F",
+    "level": 15,
+    "collection": "기본 방어구",
+    "part": 5,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1096324997993209916/miner_backpack.png"
+  },
+  "5": {
+    "name": "광부신발",
+    "rank": "F",
+    "level": 15,
+    "collection": "기본 방어구",
+    "part": 4,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1097770582952661113/miner_shoe.png"
+  },
+  "6": {
+    "name": "단단한 목걸이",
+    "rank": "E",
+    "level": 30,
+    "collection": "단단한 악세서리",
+    "part": 6,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167847847952485/hard_stone_necklace.png"
+  },
+  "7": {
+    "name": "단단한 반지",
+    "rank": "E",
+    "level": 25,
+    "collection": "단단한 악세서리",
+    "part": 7,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167848162541588/hard_stone_ring.png"
+  },
+  "8": {
+    "name": "단단한 귀걸이",
+    "rank": "E",
+    "level": 30,
+    "collection": "단단한 악세서리",
+    "part": 8,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119167847575343104/hard_stone_earing.png"
+  },
+  "9": {
+    "name": "식어버린 용암 투구",
+    "rank": "E",
+    "level": 40,
+    "collection": "용암 갑옷",
+    "part": 1,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119162702871408710/cold_magma_helmet.png"
+  },
+  "10": {
+    "name": "미지근한 용암 갑옷",
+    "rank": "E",
+    "level": 45,
+    "collection": "용암 갑옷",
+    "part": 2,
+    "trade": false,
+    "url": "https://cdn.discordapp.com/attachments/988424121878741022/1119162702561026088/magma_chestplate.png"
+  },
+  "11": {
+    "name": "뜨거운 용암 장화",
+    "rank": "E",
+    "level": 50,
+    "collection": "용암 갑옷",
+    "part": 4,
+    "trade": false,
+    "url": ""
+  }
+}
