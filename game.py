@@ -282,9 +282,9 @@ def translateName(name: str):
     `return power <=> 힘`
     '''
     column = ['power', 'hp', 'str', 'crit', 'crit_damage',
-              'damage', 'weapon', 'wear', 'title', 'item', 'money', 'level', 'collection', 'use', 'util']
+              'damage', 'weapon', 'wear', 'title', 'item', 'money', 'level', 'collection', 'use', 'util', 'mana', 'avoid', 'def']
     korean = ['힘', '체력', '중량', '크리티컬 확률', '크리티컬 데미지',
-              '데미지', '무기', '방어구', '칭호', '기타', '골드', '레벨', '컬렉션', '소비', '기타']
+              '데미지', '무기', '방어구', '칭호', '기타', '골드', '레벨', '컬렉션', '소비', '기타', '마나', '회피', '방어력']
     if name in column:
         return korean[column.index(name)]
     elif name in korean:
@@ -530,20 +530,18 @@ class User:
         con.commit()
         cur.close()
 
-    async def getItem(self, code: int, cnt: int):
+    async def getItem(self, code: int, cnt: int, type="normal"):
         '''
         cnt 개 만큼 아이템 code에 담기
         ----------------------------
         - code: 아이템 코드
-        - id: 유저 아이디
         - cnt: 넣을 아이템 갯수
         '''
-
         cur = con.cursor()
         await self.isExistItem(code)
         cur.execute(
             "UPDATE user_item SET amount = amount + %s WHERE item_id = %s AND id = %s", (cnt, code, self.id))
-        if cnt > 0:
+        if cnt > 0 and type == 'normal':
             cur.execute(
                 "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = 'item'", (cnt, self.id))
             cur.execute(
@@ -734,6 +732,36 @@ class User:
     async def sync_stat(self):
         self.stat = getStatus(self.id)
 
+    async def getWeapon(self, data: dict):
+        power = getRandomValue1(data['power'])
+        mana = getRandomValue1(data['mana'])
+        damage = getRandomValue1(data['damage'])
+        weapon_data = weapon[data['key']]
+        cur = con.cursor()
+        cur.execute(
+            "INSERT INTO user_weapon(`key`,`rank`,power,mana,damage,id) VALUES(%s,%s,%s,%s,%s,%s)", (data['key'], weapon_data['rank'], power, mana, damage, self.id))
+        cur.execute(
+            "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'make-weapon' AND code = %s", (self.id, weapon_data['name']))
+        con.commit()
+        cur.close()
+        return {'power': power, 'mana': mana, 'damage': damage}
+
+    async def getWear(self, data: dict):
+        power = getRandomValue1(data['power'])
+        hp = getRandomValue1(data['hp'])
+        str = getRandomValue1(data['str'])
+        sdef = getRandomValue1(data['def'])
+        mana = getRandomValue1(data['mana'])
+        wear_data = wear[data['key']]
+        cur = con.cursor()
+        cur.execute(
+            "INSERT INTO user_wear(`key`,`rank`,power,hp,str,def,mana,part,id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)", (data['key'], wear_data['rank'], power, hp, str, sdef, mana, wear_data['part'], self.id))
+        cur.execute(
+            "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'make-wear' AND code = %s", (self.id, wear_data['name']))
+        con.commit()
+        cur.close()
+        return {'power': power, 'hp': hp, 'str': str, 'def': sdef, 'mana': mana}
+
 
 class Quest:
     def __init__(self, user: User):
@@ -885,15 +913,23 @@ class Reinforce:
         if self.reinItem:
             return
         cur = con.cursor()
+        category = {}
         if self.isWeapon:
             cur.execute(
-                "SELECT item_id,name,upgrade,`rank`,url FROM user_weapon WHERE id = %s AND wear = 1", self.user.id)
+                "SELECT item_id,`key`,upgrade,`rank` FROM user_weapon WHERE id = %s AND wear = 1", self.user.id)
+            category = weapon
         else:
-            cur.execute("SELECT item_id,name,upgrade,`rank`,url FROM user_wear WHERE id = %s AND part = %s ANd wear = 1 ",
+            cur.execute("SELECT item_id,`key`,upgrade,`rank` FROM user_wear WHERE id = %s AND part = %s AND wear = 1 ",
                         (self.user.id, self.part.value))
+            category = wear
         reinItem = cur.fetchone()
+        if not reinItem:
+            self.reinItem = {}
+            return
         self.reinItem = makeDictionary(
-            ['item_id', 'name', 'upgrade', 'rank', 'url'], reinItem) if reinItem else {}
+            ['item_id', 'key', 'upgrade', 'rank'], reinItem)
+        self.reinItem['name'] = category[self.reinItem['key']]['name']
+        self.reinItem['url'] = category[self.reinItem['key']]['url']
 
     async def validityReinforce(self):
         await self.chooseItem()
@@ -907,11 +943,11 @@ class Reinforce:
                 return False, "재료가 부족합니다."
         cur = con.cursor()
         if self.isWeapon:
-            cur.execute("SELECT COUNT(*) FROM user_weapon WHERE id = %s AND wear = 1 AND name = %s AND upgrade = %s AND `rank` = %s AND item_id = %s",
-                        (self.user.id, self.reinItem['name'], self.reinItem['upgrade'], self.reinItem['rank'], self.reinItem['item_id']))
+            cur.execute("SELECT COUNT(*) FROM user_weapon WHERE id = %s AND wear = 1 AND `key` = %s AND upgrade = %s AND `rank` = %s AND item_id = %s",
+                        (self.user.id, self.reinItem['key'], self.reinItem['upgrade'], self.reinItem['rank'], self.reinItem['item_id']))
         else:
-            cur.execute("SELECT COUNT(*) FROM user_wear WHERE id = %s AND wear = 1 AND name = %s AND upgrade = %s AND `rank` = %s AND part = %s AND item_id = %s",
-                        (self.user.id, self.reinItem['name'], self.reinItem['upgrade'], self.reinItem['rank'], self.part.value, self.reinItem['item_id']))
+            cur.execute("SELECT COUNT(*) FROM user_wear WHERE id = %s AND wear = 1 AND `key` = %s AND upgrade = %s AND `rank` = %s AND part = %s AND item_id = %s",
+                        (self.user.id, self.reinItem['key'], self.reinItem['upgrade'], self.reinItem['rank'], self.part.value, self.reinItem['item_id']))
         if not cur.fetchone()[0]:
             self.reinItem = {}
             await self.chooseItem()
@@ -996,10 +1032,10 @@ class Reinforce:
         embed = discord.Embed(
             title=f"{self.reinItem['name']} +{self.reinItem['upgrade']} > +{self.reinItem['upgrade']+1} 강화")
         text = "```"
-        text += f"{rein['money'][rank][upgrade]} 골드\n"
+        text += f"{format(self.user.userInfo['money'],',')}/{format(rein['money'][rank][upgrade],',')} 골드\n"
         for i in rein['item'][rank][upgrade].split(","):
             name, amount = i.split("/")
-            text += f"{name} {amount}개\n"
+            text += f"{name} {await self.user.isExistItemName(name)}/{amount}개\n"
         text += "```"
         embed.add_field(name="재료", value=text, inline=False)
         embed.add_field(
@@ -1652,23 +1688,34 @@ class MakeItem:
             self.key = "1"
 
         async def getItemEmbed(self, key: str):
+            data: dict = list(
+                item[self.parent.category][int(key)].values())[0]
             if self.parent.category == "item":
-                data: dict = item[self.parent.category][int(key)]
-                data = list(data.values())[0]
                 embed = discord.Embed(
                     title=f"{data['name']} {data['amount']*self.amount}개")
-                text = ''
-                for i, d in data['required'].items():
-                    if i == "money":
-                        text += f"**{format(d*self.amount,',')}** 골드 (**{format(self.parent.user.userInfo['money'],',')} 골드** 보유중)\n"
-                    else:
-                        text += f"**{util[i]['name']} {d*self.amount}**개 (**{await self.parent.user.isExistItem(i)}**개 보유중)\n"
-                embed.add_field(name="재료", value=text, inline=False)
             elif self.parent.category == "weapon":
-                data: dict = list(
-                    item[self.parent.category][int(key)].values())[0]
                 value = weapon[data['key']]
-                embed = discord.Embed(title="")
+                embed = discord.Embed(
+                    title=f"[{value['rank']}]{value['name']}")
+                embed.add_field(
+                    name="스텟", value=f"```공격력 : {data['power'].replace(' ','~')}\n마나 : {data['mana'].replace(' ','~')}\n데미지 : {data['damage'].replace(' ','~')}%```")
+                embed.set_thumbnail(url=value['url'])
+            elif self.parent.category == "wear":
+                value = wear[data['key']]
+                embed = discord.Embed(
+                    title=f"[{value['rank']}]{value['name']}")
+                embed.add_field(
+                    name="스텟", value=f"```공격력 : {data['power'].replace(' ','~')}\n체력 : {data['hp'].replace(' ','~')}\n중량 : {data['str'].replace(' ','~')}\n방어력 : {data['def'].replace(' ','~')}\n마나 : {data['mana'].replace(' ','~')}```")
+                embed.set_thumbnail(url=value['url'])
+
+            text = '```'
+            for i, d in data['required'].items():
+                if i == "money":
+                    text += f"{format(self.parent.user.userInfo['money'],',')}/{format(d*self.amount,',')} 골드\n"
+                else:
+                    text += f"{util[i]['name']} {await self.parent.user.isExistItem(i)}/{d*self.amount}개\n"
+            text += "```"
+            embed.add_field(name="재료", value=text, inline=False)
             return embed
 
         class AmountUpDown(ui.View):
@@ -1680,12 +1727,12 @@ class MakeItem:
                 self.makeButton()
 
             def setupButton(self):
-                for i in ['+1', '+10', '+50', '+100']:
+                for i in ['+1', '+5', '+10', '+25']:
                     button = ui.Button(style=ButtonStyle.green,
                                        label=i, custom_id=i, row=0)
                     button.callback = self.buttonCallback
                     self.add_item(button)
-                for i in ['-1', '-10', '-50', '-100', '초기화']:
+                for i in ['-1', '-5', '-10', '-25', '초기화']:
                     button = ui.Button(style=ButtonStyle.red,
                                        label=i, custom_id=i, row=1)
                     button.callback = self.buttonCallback
@@ -1715,19 +1762,36 @@ class MakeItem:
                 data = list(item[self.parent.parent.category]
                             [int(self.parent.key)].values())[0]
                 for key, value in data['required'].items():
-                    await self.parent.parent.user.getItem(key, -value)
-                if self.parent.parent.category == "util" or self.parent.parent.category == "use":
+                    if key == "money":
+                        await self.parent.parent.user.getMoney(-value*self.parent.amount)
+                    else:
+                        await self.parent.parent.user.getItem(key, -value*self.parent.amount)
+                if self.parent.parent.category == "item" or self.parent.parent.category == "use":
                     for i in range(self.parent.amount):
                         if getSuccess(data['percent'], 100):
                             amount += 1
                     await self.parent.parent.user.getItem(data['code'], amount)
+                    total_amount = self.parent.amount
+                    self.parent.amount = 1
                     embed = await self.parent.getItemEmbed(self.parent.key)
                     embed.add_field(
-                        name="제작완료", value=f"{self.parent.amount}개 중에 {amount}개 제작에 성공했습니다.", inline=False)
+                        name="제작완료", value=f"{total_amount}개 중에 {amount}개 제작에 성공했습니다.", inline=False)
                 else:
-                    pass
+                    embed = await self.parent.getItemEmbed(self.parent.key)
+                    if getSuccess(data['percent'], 100):
+                        text = '```'
+                        if self.parent.parent.category == "weapon":
+                            stat = await self.parent.parent.user.getWeapon(data)
+
+                        if self.parent.parent.category == "wear":
+                            stat = await self.parent.parent.user.getWear(data)
+                        for key, value in stat.items():
+                            text += f"{translateName(key)} {value}\n"
+                        text += '```'
+
+                        embed.add_field(name="제작성공", value=text, inline=False)
                 self.parent.amount = 1
-                await interaction.response.edit_message(embed=embed)
+                await interaction.response.edit_message(embed=embed, view=self.parent.AmountUpDown(self.parent))
 
             async def buttonCallback(self, interaction: Interaction):
                 custom_id = interaction.data['custom_id']
@@ -1738,7 +1802,7 @@ class MakeItem:
                     self.parent.amount += value
                     if self.parent.amount < 1:
                         self.parent.amount = 1
-                await interaction.response.edit_message(embed=await self.parent.getItemEmbed(self.parent.key))
+                await interaction.response.edit_message(embed=await self.parent.getItemEmbed(self.parent.key), view=self.parent.AmountUpDown(self.parent))
 
             @ui.button(label="뒤로가기", style=ButtonStyle.red, row=2)
             async def quit(self, interaction: Interaction, button: ui.Button):
@@ -1750,7 +1814,15 @@ class MakeItem:
 
             async def item_select(interaction: Interaction):
                 self.key = interaction.data['values'][0]
-                await interaction.response.edit_message(embed=await self.getItemEmbed(interaction.data['values'][0]), view=self.AmountUpDown(self))
+                if self.key == "next":
+                    self.parent.page += 1
+                    await self.parent.setup(interaction)
+
+                elif self.key == "prev":
+                    self.parent.page -= 1
+                    await self.parent.setup(interaction)
+                else:
+                    await interaction.response.edit_message(embed=await self.getItemEmbed(interaction.data['values'][0]), view=self.AmountUpDown(self))
             select.callback = item_select
             self.add_item(select)
 
@@ -1764,10 +1836,22 @@ class MakeItem:
                 if self.parent.category == "item":
                     options.append(SelectOption(
                         label=f"{option_item['name']} {option_item['amount']}개", description="거래가능" if util[option_item['code']]['trade'] else '거래불가', value=key))
+                elif self.parent.category == "wear":
+                    data: dict = wear[option_item['key']]
+                    options.append(SelectOption(
+                        label=f"Lv.{data['level']} [{data['rank']}] {data['name']}", description=f"{data['collection']} 세트", value=key))
                 elif self.parent.category == "weapon":
                     data: dict = weapon[option_item['key']]
                     options.append(SelectOption(
-                        label=f"[{data['rank']}]{data['name']}", description=f"{data['collection']} 세트", value=key))
+                        label=f"Lv.{data['level']} [{data['rank']}] {data['name']}", value=key))
+                elif self.parent.category == "title":
+                    data: dict = title[option_item['key']]
+                    options.append(SelectOption(
+                        label=f"Lv.{data['level']} [{data['rank']}] {data['name']}", description=data['description'], value=key))
+            if len(items) > self.parent.page + 1:
+                options.append(SelectOption(label="다음으로", value="next"))
+            if self.parent.page > 0:
+                options.append(SelectOption(label="이전으로", value="prev"))
             return options
 
         @ui.button(label="뒤로가기", emoji="🚪", style=ButtonStyle.red, row=1)
@@ -1838,6 +1922,15 @@ async def stat(interaction: Interaction, 스텟: statEnum, 포인트: int):
         return await interaction.response.send_message(f"현재 {user.where}에 있어 스텟을 올릴 수 없어요.", ephemeral=True)
     message = await user.statusUp(스텟, 포인트)
     await interaction.response.send_message(message, ephemeral=True)
+
+
+@tree.command(name="기타아이템넣기", description="운영자 전용 명령어")
+async def put_util(interaction: Interaction, 아이디: str, 코드: int, 개수: int):
+    user = User(아이디)
+    if await authorizeUser(user, interaction):
+        return
+    await user.getItem(코드, 개수, "put")
+    await interaction.response.send_message(f"{user.userInfo['nickname']}님에게 {util[str(코드)]['name']}을 {개수}개 지급했습니다.", ephemeral=True)
 
 
 @tree.command(name="퀘스트", description="퀘스트입니다.")
