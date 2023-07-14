@@ -14,8 +14,8 @@
       "next": "2"
     },
     "2": {
-      "type": "do",
-      "code": "reinforce",
+      "type": "reinforce",
+      "code": "무기",
       "amount": 1,
       "gold": 200,
       "exp": 50,
@@ -53,30 +53,69 @@
       "next": "5"
     },
     "5": {
+      "type": "level",
+      "code": "5",
+      "amount": 1,
+      "gold": 500,
+      "exp": 300,
+      "util": "3-5",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/채광 명령어를 통해 레벨 5까지 도달해 보세요!",
+      "next": "6"
+    },
+    "6": {
       "type": "make-wear",
       "code": "광부모자",
       "amount": 1,
-      "gold": 350,
+      "gold": 500,
       "exp": 300,
       "util": "3-5",
       "use": "",
       "weapon": "",
       "wear": "",
       "description": "/제작소 명령어를 통해 광부모자를 만들어 보세요!",
-      "next": "6"
+      "next": "7"
     },
-    "6": {
-      "type":"level",
-      "code":"10",
+    "7":{
+      "type":"equip",
+      "code":"광부모자",
       "amount":1,
-      "gold": 1500,
-      "exp": 500,
-      "util": "3-10 5-3 6-10",
+      "gold":500,
+      "exp":350,
+      "util":"3-5",
       "use":"",
       "weapon":"",
       "wear":"",
-      "description":"/채광 을 통해 레벨 10까지 도달해 보세요!",
-      "next":""
+      "description":"/인벤토리 명령어를 통해 광부모자를 착용해 보세요!",
+      "next":"8"
+    },
+    "8": {
+      "type": "reinforce",
+      "code": "광부모자",
+      "amount": 1,
+      "gold": 1000,
+      "exp": 500,
+      "util": "3-10 5-3 6-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/강화 명령어를 통해 광부모자를 강화해 보세요!",
+      "next": "9"
+    },
+    "9": {
+      "type": "level",
+      "code": "15",
+      "amount": 1,
+      "gold": 1500,
+      "exp": 500,
+      "util": "3-10 5-3 6-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/채광 명령어를 통해 레벨 15까지 도달해 보세요!",
+      "next": ""
     }
   }
 }
