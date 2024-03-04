@@ -1,3 +1,3 @@
 ﻿# humanity_code
-##discord rpg bot
+## discord rpg bot
 
