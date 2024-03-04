@@ -584,6 +584,8 @@ class User:
         cur = con.cursor()
         cur.execute(
             "UPDATE quest SET now = now +1 WHERE id = %s AND code = %s AND `type` = 'entrance'", (self.id, floor))
+        con.commit()
+        cur.close()
 
     async def getReinforce(self, part: reinEnum, name: str):
         cur = con.cursor()
