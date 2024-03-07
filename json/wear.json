@@ -5,7 +5,7 @@
     "level": 5,
     "collection": "기본 방어구",
     "part": 1,
-    "trade": false,
+    "trade": true,
     "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087292892671922208/miner_hat.png"
   },
   "2": {
@@ -14,7 +14,7 @@
     "level": 10,
     "collection": "기본 방어구",
     "part": 2,
-    "trade": false,
+    "trade": true,
     "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087929900175982603/miner_chestplate.png"
   },
   "3": {
@@ -23,7 +23,7 @@
     "level": 10,
     "collection": "기본 방어구",
     "part": 3,
-    "trade": false,
+    "trade": true,
     "url": "https://cdn.discordapp.com/attachments/988424121878741022/1087933878787903508/miner_glove.png"
   },
   "4": {
@@ -32,7 +32,7 @@
     "level": 15,
     "collection": "기본 방어구",
     "part": 5,
-    "trade": false,
+    "trade": true,
     "url": "https://cdn.discordapp.com/attachments/988424121878741022/1096324997993209916/miner_backpack.png"
   },
   "5": {
@@ -41,7 +41,7 @@
     "level": 15,
     "collection": "기본 방어구",
     "part": 4,
-    "trade": false,
+    "trade": true,
     "url": "https://cdn.discordapp.com/attachments/988424121878741022/1097770582952661113/miner_shoe.png"
   },
   "6": {

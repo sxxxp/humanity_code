@@ -78,18 +78,18 @@
       "description": "/제작소 명령어를 통해 광부모자를 만들어 보세요!",
       "next": "7"
     },
-    "7":{
-      "type":"equip",
-      "code":"광부모자",
-      "amount":1,
-      "gold":500,
-      "exp":350,
-      "util":"3-5",
-      "use":"",
-      "weapon":"",
-      "wear":"",
-      "description":"/인벤토리 명령어를 통해 광부모자를 착용해 보세요!",
-      "next":"8"
+    "7": {
+      "type": "equip",
+      "code": "광부모자",
+      "amount": 1,
+      "gold": 500,
+      "exp": 350,
+      "util": "3-5",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/인벤토리 명령어를 통해 광부모자를 착용해 보세요!",
+      "next": "8"
     },
     "8": {
       "type": "reinforce",
@@ -115,6 +115,47 @@
       "weapon": "",
       "wear": "",
       "description": "/채광 명령어를 통해 레벨 15까지 도달해 보세요!",
+      "next": "10"
+    },
+    "10": {
+      "type": "ready",
+      "code": "ready",
+      "amount": 1,
+      "gold": 0,
+      "exp": 0,
+      "util": "",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "퀘스트를 준비중에 있어요!",
+      "next": ""
+    }
+  },
+  "daily": {
+    "1": {
+      "type": "kill",
+      "code": "any",
+      "amount": 5,
+      "gold": "level 100*",
+      "exp": "level 3%",
+      "util": "3-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "/채광 명령어를 통해 아무 광석을 5개 채광하세요!",
+      "next": ""
+    },
+    "2": {
+      "type": "get",
+      "code": "gold",
+      "amount": "level 250*",
+      "gold": "level 100*",
+      "exp": "level 5%",
+      "util": "3-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "골드를 획득해 보세요!",
       "next": ""
     }
   }

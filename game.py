@@ -10,6 +10,7 @@ import math
 import asyncio
 import random
 import typing
+import decimal
 from enum import Enum
 from dotenv import load_dotenv
 import io
@@ -169,7 +170,7 @@ def getStatus(id: int):
                   "avoid": 0, "crit": 0, "crit_damage": 0, "damage": 0}
     key = cur.fetchone()
     if key:
-        wear_title: dict = title[key[0]]
+        wear_title: dict = title[key[0]].copy()
         del wear_title['name']
         del wear_title['description']
         del wear_title['rank']
@@ -177,6 +178,7 @@ def getStatus(id: int):
         del wear_title['trade']
         for item, data in wear_title.items():
             title_stat[item] += data
+
         title_stat['crit_damage'] /= 100
     cur.execute(
         "SELECT power,damage/100,`option`,mana FROM user_weapon WHERE id=%s AND wear = 1", id)
@@ -192,8 +194,17 @@ def getStatus(id: int):
                           'crit_damage', 'mana', 'avoid', 'point'], cur.fetchone())
     final = {'power': 0, 'hp': 25, "str": 0, 'def': 0, 'damage': 0, 'crit': 0, 'mana': 0, 'avoid': 0,
              'crit_damage': 0, 'maxhp': 0, 'point': 0}
+    print("wear: ", wear_stat, "\n", "weapon: ", weapon_stat,
+          '\n', "title: ", title_stat, '\n', "stat: ", stat, '\n', "option: ", option, '\n', "collection: ", collection)
     for key, value in chain(wear_stat.items(), weapon_stat.items(), option.items(), stat.items(), collection.items(), title_stat.items()):
         if value:
+            print(key, value, type(value))
+            if isinstance(value, decimal.Decimal):
+                if key in ["str", 'def', 'damage', 'crit_damage']:
+                    value = float(value)
+                else:
+                    value = int(value)
+
             final[key] += value
     final['maxhp'] = final['hp']
     final['power'] = float(final['power'])
@@ -322,6 +333,7 @@ def getInfo(id: int):
     cur.execute("SELECT `key` FROM user_title WHERE id = %s AND wear = 1", id)
     key = cur.fetchone()
     if key:
+        print(title[key[0]])
         info['title'] = title[key[0]]['name']
     else:
         info['title'] = "칭호없음"
@@ -372,7 +384,7 @@ class MyClient(discord.Client):
 
     @tasks.loop(time=datetime.time(hour=21, minute=0, second=0, tzinfo=KST))
     async def boost_21(self):
-        global EXP_EARN
+        global EXP_EARN, MONEY_EARN
         EXP_EARN = 2
         MONEY_EARN = 1
 
@@ -387,6 +399,16 @@ class MyClient(discord.Client):
         global EXP_EARN, MONEY_EARN
         EXP_EARN = 1
         MONEY_EARN = 1
+
+    async def makeDailyQuest(self):
+        pass
+
+    async def giveDailyQuest(self):
+        cur = con.cursor()
+        cur.execute("SELECT id FROM user_info")
+        userId: tuple[int] = cur.fetchall()  # type: ignore
+        for i in userId:
+            Quest(User(i))
 
 
 EXP_EARN = 1
@@ -521,7 +543,7 @@ class User:
         con.commit()
         cur.close()
 
-    async def getKill(self, name: str = None):
+    async def getKill(self, name: typing.Optional[str]):
         cur = con.cursor()
         cur.execute(
             "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'kill' AND code = %s", (self.id, name))
@@ -584,6 +606,8 @@ class User:
         cur = con.cursor()
         cur.execute(
             "UPDATE quest SET now = now +1 WHERE id = %s AND code = %s AND `type` = 'entrance'", (self.id, floor))
+        con.commit()
+        cur.close()
 
     async def getReinforce(self, part: reinEnum, name: str):
         cur = con.cursor()
@@ -779,7 +803,7 @@ class User:
                         (self.id, weapon[key]['name']))
         elif category == "wear":
             cur.execute(
-                "UPDATE user_wear SET wear = 0 WHERE id = %s AND wear = 1", (self.id))
+                "UPDATE user_wear SET wear = 0 WHERE id = %s AND wear = 1 AND part = %s", (self.id, wear[key]['part']))
             cur.execute(
                 "UPDATE user_wear SET wear = 1 WHERE id = %s AND item_id = %s", (self.id, item_id))
             cur.execute("UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'equip' AND `code` = %s",
@@ -791,6 +815,23 @@ class User:
                 "UPDATE user_title SET wear = 1 WHERE id = %s AND item_id = %s", (self.id, item_id))
             cur.execute("UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'equip' AND `code` = %s",
                         (self.id, wear[key]['name']))
+        cur.execute(
+            "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'equip' AND `code` = %s", (self.id, category))
+        con.commit()
+        await self.sync_stat()
+
+    async def unequipItem(self, category: str, data: tuple):
+        item_id = data[0]
+        cur = con.cursor()
+        if category == "weapon":
+            cur.execute(
+                "UPDATE user_weapon SET wear = 0 WHERE id = %s AND item_id = %s", (self.id, item_id))
+        elif category == "wear":
+            cur.execute(
+                "UPDATE user_wear SET wear = 0 WHERE id = %s AND item_id = %s", (self.id, item_id))
+        elif category == "title":
+            cur.execute(
+                "UPDATE user_title SET wear = 0 WHERE id = %s AND item_id = %s", (self.id, item_id))
         cur.execute(
             "UPDATE quest SET now = now + 1 WHERE id = %s AND `type` = 'equip' AND `code` = %s", (self.id, category))
         con.commit()
@@ -822,8 +863,12 @@ class Quest:
         self.quest = []
 
     async def questInfo(self, type: str, code: str, amount: int):
+        text="error"
         if type == "kill":
-            text = f"{code} {amount}회 처치"
+            if code == "any":
+                text = f"아무 광석 {amount}회 처치"
+            else:
+                text = f"{code} {amount}회 처치"
         elif type == "level":
             text = f"{code}레벨 달성하기"
         elif type == "get-stone":
@@ -835,6 +880,8 @@ class Quest:
                 text = f"{amount} 레벨업 하기"
             elif code == "stat":
                 text = f"스텟 {amount}개 올리기"
+        elif type == "ready":
+            text = "퀘스트가 아직 없어요!"
         elif type == "reinforce":
             if code == "any":
                 text = f"아무 아이템 강화 {amount}번 진행하기"
@@ -862,6 +909,7 @@ class Quest:
             text = f"{code} {amount}회 제작하기"
         elif type == "entrance":
             text = f"{code} {amount}회 입장하기"
+        
         return text
 
     async def getQuest(self, type: str):
@@ -912,6 +960,7 @@ class Quest:
                     (self.user.id, key, type))
         insert_value = list(quest_info.values())[:-2]
         insert_value.insert(0, key)
+        insert_value[3] = await self.reformAmount(insert_value[3])
         insert_value.append(self.user.id)
         if insert_value[1] == "level" and self.user.userInfo['level'] >= int(insert_value[2]):
             insert_value.append(1)
@@ -923,6 +972,46 @@ class Quest:
             "INSERT INTO quest VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ", insert_value)
         con.commit()
         cur.close()
+
+    async def reformReward(self, money: int | str, exp: int | str):
+        m, e = [0, 0]
+        if isinstance(money, int):
+            m = money
+        else:
+            condition, value = money.split(" ")
+            if condition == "level":
+                condition = self.user.userInfo['level']
+            else:
+                return "error in money"
+            if value[-1] == "*":
+                m = condition*int(value[:-1])
+        if isinstance(exp, int):
+            e = exp
+        else:
+            condition, value = exp.split(" ")
+            if condition == "level":
+                condition = self.user.userInfo['level']
+            else:
+                return "error in exp"
+            if value[-1] == "*":
+                e = condition*int(value[:-1])
+            elif value[-1] == "%":
+                req = level[str(self.user.userInfo['rebirth'])
+                            ][str(self.user.userInfo['level'])]
+                e = req*int(value[:-1])/100
+        return m, e
+
+    async def reformAmount(self, amount: int | str):
+        if isinstance(amount, int):
+            return amount
+        else:
+            condition, value = amount.split()
+            if condition == "level":
+                condition = self.user.userInfo['level']
+            else:
+                return "error in amount"
+            if value[-1] == "*":
+                return condition*value[:-1]
 
     async def claimQuest(self):
         cur = con.cursor()
@@ -938,12 +1027,15 @@ class Quest:
             if quest_info['next']:
                 await self.makeQuest(i[-1], quest_info['next'])
             quest_name = await self.questInfo(i[1], i[2], i[3])
-            await self.user.getMoney(i[4], "quest")
-            num = await self.user.getExp(i[5], "quest")
+            money, exp = await self.reformReward(i[4], i[5])
+            if money is not int or exp is not int:
+                return
+            await self.user.getMoney(money, "quest")  # type: ignore
+            num = await self.user.getExp(exp, "quest")  # type: ignore
             util_text = ""
             for j in quest_info['util'].split(" "):
                 code, value = j.split("-")
-                await self.user.getItem(code, int(value))
+                await self.user.getItem(code, int(value), type="quest")
                 util_text += f"{util[code]['name']} {value}개 "
             if i[-1] == "normal":
                 normal_text += f"```{quest_name} 퀘스트 클리어!\n"
@@ -1031,10 +1123,10 @@ class Reinforce:
             if self.isWeapon:
                 cur.execute("UPDATE user_weapon SET power = power + %s, upgrade = upgrade + 1 WHERE id = %s AND item_id = %s",
                             (rein['weapon'][rank][upgrade], self.user.id, self.reinItem['item_id']))
-                self.reinItem['upgrade'] += 1
             else:
-                cur.execute("UPDATE user_wear SET `%s` = `%s` + %s WHERE id = %s AND item_id = %s AND part = %s", (translateName(getPartRein(self.part.value)),
-                            translateName(getPartRein(self.part.value)), rein['wear'][rank][upgrade], self.user.id, self.reinItem['item_id'], self.part.value))
+                cur.execute(f"UPDATE user_wear SET {translateName(getPartRein(self.part.value))} = {translateName(getPartRein(self.part.value))} + %s, upgrade = upgrade + 1 WHERE id = %s AND item_id = %s AND part = %s",
+                            (rein['wear'][rank][upgrade], self.user.id, self.reinItem['item_id'], self.part.value))
+            self.reinItem['upgrade'] += 1
             await self.user.sync_stat()
             con.commit()
             cur.close()
@@ -1997,14 +2089,37 @@ class Inventory:
             await interaction.delete_original_response()
 
     class setupView(ui.View):
-
-        def __init__(self, parent: 'Inventory'):
+        def __init__(self, parent: 'Inventory', key=""):
             super().__init__(timeout=None)
             self.parent = parent
             self.select_function()
-            self.key = "1"
+            self.key = key
+            if key:
+                if self.parent.category != 'item' or self.parent.category != 'use':
+                    print(key)
+                    self.equip_button()
+                    self.drop_button()
 
         async def getWearingItem(self, key: str):
+            now = self.parent.inventory[self.parent.category][int(key)]
+            data = self.parent.inventory[self.parent.category]
+            if self.parent.category == 'wear':
+                for item in data:
+                    if now[10] == item[10] and item[9] == 1:
+                        return item
+            elif self.parent.category == 'weapon':
+                for item in data:
+                    if item[8] == 1:
+                        return item
+            elif self.parent.category == 'title':
+                for item in data:
+                    if item[2] == 1:
+                        return item
+            return None
+
+        def getWearingItemSync(self, key: str):
+            if not key:
+                return
             now = self.parent.inventory[self.parent.category][int(key)]
             data = self.parent.inventory[self.parent.category]
             if self.parent.category == 'wear':
@@ -2024,6 +2139,8 @@ class Inventory:
         async def compareItem(self, key: str):
             data: tuple = self.parent.inventory[self.parent.category][int(key)]
             wearing: tuple = await self.getWearingItem(key)
+            if not wearing:
+                return "", ""
             gap = []
             if self.parent.category == "weapon":
                 for i in range(4, 7):
@@ -2057,91 +2174,106 @@ class Inventory:
                 value = weapon[data[1]]
                 embed = discord.Embed(
                     title=f"[{data[3]}] {value['name']} +{data[2]} {'착용중' if data == wearing else ''}")
-                embed.add_field(
-                    name="스텟", value=f"```힘 : {data[4]}({gap[0]})\n마나 : {data[5]}({gap[1]})\n데미지 : {data[6]}%({gap[2]}%)```")
+                if not gap:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {data[4]}\n마나 :{data[5]}\n데미지 : {data[6]}%```")
+                else:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {data[4]}({gap[0]})\n마나 : {data[5]}({gap[1]})\n데미지 : {data[6]}%({gap[2]}%)```")
                 embed.set_thumbnail(url=value['url'])
                 embed.set_footer(text=f"아이템 코드 : {data[0]}")
             elif self.parent.category == "wear":
                 value = wear[data[1]]
                 embed = discord.Embed(
                     title=f"[{data[3]}] {value['name']} +{data[2]} {'착용중' if data == wearing else ''}")
-                embed.add_field(
-                    name="스텟", value=f"```힘 : {data[4]}({gap[0]})\n체력 : {data[5]}({gap[1]})\n중량 : {data[6]}({gap[2]})\n방어력 : {data[7]}({gap[3]})\n마나 : {data[8]}({gap[4]})```")
+                if not gap:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {data[4]}\n체력 : {data[5]}\n중량 : {data[6]}\n방어력 : {data[7]}\n마나 : {data[8]}```")
+                else:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {data[4]}({gap[0]})\n체력 : {data[5]}({gap[1]})\n중량 : {data[6]}({gap[2]})\n방어력 : {data[7]}({gap[3]})\n마나 : {data[8]}({gap[4]})```")
                 embed.set_thumbnail(url=value['url'])
                 embed.set_footer(text=f"아이템 코드 : {data[0]}")
             elif self.parent.category == "title":
                 value = title[data[1]]
                 embed = discord.Embed(
                     title=f"[{value['rank']}] {value['name']} {'착용중' if data == wearing else ''}")
-                embed.add_field(
-                    name="스텟", value=f"```힘 : {value['power']}({gap[0]})\n체력 : {value['hp']}({gap[1]})\n중량 : {value['str']}({gap[2]})\n방어력 : {value['def']}({gap[3]})\n마나 : {value['mana']}({gap[4]})\n크리티컬 확률 : {value['crit']}%({gap[5]}%)\n크리티컬 데미지 : {value['crit_damage']}%({gap[6]}%)\n데미지 : {value['damage']}%({gap[7]}%)\n```")
+                if not gap:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {value['power']}\n체력 : {value['hp']}\n중량 : {value['str']}\n방어력 : {value['def']}\n마나 : {value['mana']}\n크리티컬 확률 : {value['crit']}%\n크리티컬 데미지 : {value['crit_damage']}%\n데미지 : {value['damage']}%\n```")
+                else:
+                    embed.add_field(
+                        name="스텟", value=f"```힘 : {value['power']}({gap[0]})\n체력 : {value['hp']}({gap[1]})\n중량 : {value['str']}({gap[2]})\n방어력 : {value['def']}({gap[3]})\n마나 : {value['mana']}({gap[4]})\n크리티컬 확률 : {value['crit']}%({gap[5]}%)\n크리티컬 데미지 : {value['crit_damage']}%({gap[6]}%)\n데미지 : {value['damage']}%({gap[7]}%)\n```")
+
                 embed.set_footer(text=f"아이템 코드 : {data[0]}")
 
             return embed
 
-        class EquipMentView(ui.View):
-            _instance = None
+        def validity_level(self):
+            inventory = self.parent.inventory[self.parent.category]
+            if not self.key:
+                return False
+            key = int(self.key)
 
-            def __new__(cls,  *args):
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-                return cls._instance
+            if self.parent.category == "weapon":
+                level = weapon[inventory[key][1]]['level']
+            elif self.parent.category == "wear":
+                level = wear[inventory[key][1]]['level']
+            elif self.parent.category == "title":
+                level = title[inventory[key][1]]['level']
+            if self.parent.user.userInfo['level'] >= level:
+                return False
+            return True
 
-            def __init__(self, parent: 'Inventory.setupView', key: str):
-                super().__init__(timeout=None)
-                self.parent = parent
-                if not hasattr(self, 'value'):
-                    self.value = 0
-                self.key = key
+        def equip_button(self):
+            # if self.value == 0:
+            data: tuple = self.parent.inventory[self.parent.category][int(
+                self.key)]
+            if self.getWearingItemSync(self.key) == data:
+                button = ui.Button(
+                    style=ButtonStyle.green, label="착용해제")
+                button.callback = self.unequipCallback
+            else:
+                equip = self.validity_level()
+                button = ui.Button(style=ButtonStyle.red if equip else ButtonStyle.green,
+                                   label="착용불가" if equip else "착용하기", disabled=equip)
+                button.callback = self.equipCallback
+            # self.value += 1
+            self.add_item(button)
+            # else:
+            #     return None
 
-            def validity_level(self):
-                inventory = self.parent.parent.inventory[self.parent.parent.category]
-                key = int(self.key)
-                if self.parent.parent.category == "weapon":
-                    level = weapon[inventory[key][1]]['level']
-                elif self.parent.parent.category == "wear":
-                    level = wear[inventory[key][1]]['level']
-                elif self.parent.parent.category == "title":
-                    level = title[inventory[key][1]]['level']
-                if self.parent.parent.user.userInfo['level'] >= level:
-                    return False
-                return True
+        def drop_button(self):
+            # if self.value == 1:
+            button = ui.Button(
+                style=ButtonStyle.red, label="버리기", emoji="🗑")
+            button.callback = self.dropCallback
+            # self.value += 1
+            self.add_item(button)
+            # else:
+            #     return None
 
-            def equip_button(self):
-                if self.value == 0:
-                    equip = self.validity_level()
-                    button = ui.Button(style=ButtonStyle.red if equip else ButtonStyle.green,
-                                       label="착용불가" if equip else "착용하기", disabled=equip)
-                    button.callback = self.equipCallback
+        async def unequipCallback(self, interaction: Interaction):
+            category = self.parent.category
+            inventory = self.parent.inventory[category]
+            await self.parent.user.unequipItem(
+                category, inventory[int(self.key)])
+            await self.parent.loadInventory()
+            await interaction.response.edit_message(embed=await self.getItemEmbed(self.key), view=self.parent.setupView(self.parent, self.key))
 
-                    self.value += 1
-                    return button
-                else:
-                    return None
+        async def equipCallback(self, interaction: Interaction):
+            category = self.parent.category
+            inventory = self.parent.inventory[category]
+            await self.parent.user.equipItem(
+                category, inventory[int(self.key)])
+            await self.parent.loadInventory()
+            await interaction.response.edit_message(embed=await self.getItemEmbed(self.key), view=self.parent.setupView(self.parent, self.key))
 
-            def drop_button(self):
-                if self.value == 1:
-                    button = ui.Button(
-                        style=ButtonStyle.red, label="버리기", emoji="🗑")
-                    button.callback = self.dropCallback
-                    self.value += 1
-                    return button
-                else:
-                    return None
-
-            async def equipCallback(self, interaction: Interaction):
-                await self.parent.parent.user.equipItem(
-                    self.parent.parent.category, self.parent.parent.inventory[self.parent.parent.category][int(self.key)])
-                await self.parent.parent.loadInventory()
-                self.value = 0
-                await interaction.response.edit_message(embed=await self.parent.getItemEmbed(self.key), view=self.parent.parent.setupView(self.parent.parent))
-
-            async def dropCallback(self, interaction: Interaction):
-                await self.parent.parent.user.dropItem(
-                    self.parent.parent.category, self.parent.parent.inventory[self.parent.parent.category][int(self.key)])
-                await self.parent.parent.loadInventory()
-                self.value = 0
-                await interaction.response.edit_message(embed=None, view=self.parent.parent.setupView(self.parent.parent))
+        async def dropCallback(self, interaction: Interaction):
+            await self.parent.user.dropItem(
+                self.parent.category, self.parent.inventory[self.parent.category][int(self.key)])
+            await self.parent.loadInventory()
+            await interaction.response.edit_message(embed=None, view=self.parent.setupView(self.parent))
 
         def select_function(self):
             options = self.options()
@@ -2161,16 +2293,7 @@ class Inventory:
                     self.parent.page -= 1
                     await self.parent.setup(interaction)
                 else:
-                    if self.parent.category != 'item' and self.parent.category != 'use':
-                        key_view = self.EquipMentView(
-                            self, interaction.data['values'][0])
-                        button = key_view.equip_button()
-                        button2 = key_view.drop_button()
-                        if button:
-                            self.add_item(button)
-                        if button2:
-                            self.add_item(button2)
-                    await interaction.response.edit_message(embed=await self.getItemEmbed(interaction.data['values'][0]), view=self)
+                    await interaction.response.edit_message(embed=await self.getItemEmbed(interaction.data['values'][0]), view=self.parent.setupView(self.parent, self.key))
             select.callback = item_select
             self.add_item(select)
 
@@ -2187,6 +2310,7 @@ class Inventory:
                             label=f"[{i[0]}] {info['name']} ({'교환가능' if info['trade'] else '교환불가'}) {i[1]}개", description=info['description'], value=str(idx+self.parent.page*10)))
                 elif self.parent.category == "wear":
                     info: dict = wear[i[1]]
+                    print(idx, i)
                     options.append(SelectOption(
                         label=f"Lv.{info['level']} [{i[3]}] {info['name']} +{i[2]} {'착용중' if i[9] else ''}", value=str(idx+self.parent.page*10)))
                 elif self.parent.category == "weapon":
@@ -2205,7 +2329,6 @@ class Inventory:
 
         @ ui.button(label="뒤로가기", emoji="🚪", style=ButtonStyle.red, row=2)
         async def quit(self, interaction: Interaction, button: ui.Button):
-            self.EquipMentView(self.parent, 0).value = 0
             await self.parent.categorySetup(interaction)
 
     async def loadInventory(self):
@@ -2248,62 +2371,62 @@ class Inventory:
             await interaction.edit_original_response(embed=await self.setupEmbed(), view=self.setupView(self))
 
 
-class tradeItem:
+class TradeItem:
     def __init__(self, offer: User, receiver: User):
         self.offer = offer
         self.offer.ready: bool = False
         self.offer.item: dict = {'weapon': [], 'wear': [],
                                  'title': [], 'util': [], 'use': []}
-        self.offer.offer_item: dict = {'weapon': [], 'wear': [],
-                                       'title': [], 'util': {}, 'use': {}, 'gold': 0}
+        self.offer.offer_item: dict = {'weapon': {}, 'wear': {},
+                                       'title': {}, 'util': {}, 'use': {}, 'gold': 0}
         self.receiver = receiver
         self.receiver.ready: bool = False
         self.receiver.item: dict = {'weapon': [], 'wear': [],
                                     'title': [], 'util': [], 'use': []}
-        self.receiver.offer_item: dict = {'weapon': [], 'wear': [],
-                                          'title': [], 'util': {}, 'use': {}, 'gold': 0}
+        self.receiver.offer_item: dict = {'weapon': {}, 'wear': {},
+                                          'title': {}, 'util': {}, 'use': {}, 'gold': 0}
 
     async def getItem(self):
         cur = con.cursor()
         cur.execute(
-            "SELECT item_id,`key`,upgrade,`rank` FROM user_wear WHERE id = %s AND wear = 0", self.offer.id)
+            "SELECT item_id,`key`,upgrade,`rank` FROM user_wear WHERE id = %s AND wear = 0 ORDER BY item_id", self.offer.id)
         for i in cur.fetchall():
             if wear[str(i[1])]['trade']:
                 self.offer.item['wear'].append(i)
         cur.execute(
-            "SELECT item_id,`key`,upgrade,`rank` FROM user_weapon WHERE id = %s AND wear = 0", self.offer.id)
+            "SELECT item_id,`key`,upgrade,`rank` FROM user_weapon WHERE id = %s AND wear = 0 ORDER BY item_id", self.offer.id)
         for i in cur.fetchall():
             if weapon[str(i[1])]['trade']:
                 self.offer.item['weapon'].append(i)
         cur.execute(
-            "SELECT item_id,`key` FROM user_title WHERE id = %s AND wear = 0", self.offer.id)
+            "SELECT item_id,`key` FROM user_title WHERE id = %s AND wear = 0 ORDER BY item_id", self.offer.id)
         for i in cur.fetchall():
             if title[str(i[1])]['trade']:
                 self.offer.item['title'].append(i)
         cur.execute(
-            "SELECT item_id,name,amount FROM user_item WHERE id = %s", self.offer.id)
+            "SELECT item_id,name,amount FROM user_item WHERE id = %s AND amount > 0 ORDER BY item_id", self.offer.id)
         for i in cur.fetchall():
             if util[str(i[0])]['trade']:
                 self.offer.item['util'].append(i)
         # cur.execute(
         #     "SELECT item_id,name,amount FROM user_use WHERE id = %s AND wear = 0")
         cur.execute(
-            "SELECT item_id,`key`,upgrade,`rank` FROM user_wear WHERE id = %s AND wear = 0", self.receiver.id)
+            "SELECT item_id,`key`,upgrade,`rank` FROM user_wear WHERE id = %s AND wear = 0 ORDER BY item_id", self.receiver.id)
         for i in cur.fetchall():
             if wear[str(i[1])]['trade']:
                 self.receiver.item['wear'].append(i)
         cur.execute(
-            "SELECT item_id,`key`,upgrade,`rank` FROM user_weapon WHERE id = %s AND wear = 0", self.receiver.id)
+            "SELECT item_id,`key`,upgrade,`rank` FROM user_weapon WHERE id = %s AND wear = 0 ORDER BY item_id", self.receiver.id)
         for i in cur.fetchall():
             if weapon[str(i[1])]['trade']:
                 self.receiver.item['weapon'].append(i)
         cur.execute(
-            "SELECT item_id,`key` FROM user_title WHERE id = %s AND wear = 0", self.receiver.id)
+            "SELECT item_id,`key` FROM user_title WHERE id = %s AND wear = 0 ORDER BY item_id", self.receiver.id)
         for i in cur.fetchall():
             if title[str(i[1])]['trade']:
                 self.receiver.item['title'].append(i)
         cur.execute(
-            "SELECT item_id,name,amount FROM user_item WHERE id = %s", self.receiver.id)
+            "SELECT item_id,name,amount FROM user_item WHERE id = %s AND amount > 0 ORDER BY item_id", self.receiver.id)
         for i in cur.fetchall():
             if util[str(i[0])]['trade']:
                 self.receiver.item['util'].append(i)
@@ -2314,13 +2437,13 @@ class tradeItem:
         text = ''
         for i in user.offer_item[category]:
             if category == "weapon":
-                text += f"[{i[0]}] {weapon[i[1]]['name']}\n"
+                text += f"**[{i[0]}] {weapon[i[1]]['name']}**\n"
             elif category == "wear":
-                text += f"[{i[0]}] {wear[i[1]]['name']}\n"
+                text += f"**[{i[0]}] {wear[i[1]]['name']}**\n"
             elif category == "title":
-                text += f"[{i[0]}] {title[i[1]]['name']}\n"
+                text += f"**[{i[0]}] {title[i[1]]['name']}**\n"
             elif category == "util":
-                text += f"[{i[0]}] {item[i[0]]['name']}\n"
+                text += f"**[{i[0]}] {item[i[0]]['name']}**\n"
         return text
 
     async def getSetupEmbed(self):
@@ -2333,6 +2456,9 @@ class tradeItem:
             if text:
                 embed.add_field(name=translateName(
                     i), value=text, inline=False)
+        if self.offer.offer_item['gold']:
+            embed.add_field(
+                name="골드", value=f"**{format(self.offer.offer_item['gold'],',')}** 원", inline=False)
         embed.add_field(
             name=f"{self.receiver.userInfo['nickname']} {'준비완료' if self.receiver.ready else ''}", value='', inline=False)
         for i in ['weapon', 'wear', 'title', 'util']:
@@ -2340,15 +2466,23 @@ class tradeItem:
             if text:
                 embed.add_field(name=translateName(
                     i), value=text, inline=False)
+        if self.receiver.offer_item['gold']:
+            embed.add_field(
+                name="골드", value=f"**{format(self.receiver.offer_item['gold'],',')}** 원", inline=False)
         return embed
 
     async def validity(self, interaction: Interaction):
+        if self.offer.where:
+            return await interaction.response.send_message(f"현재 {self.offer.where}에 있어 거래할 수 없습니다.", ephemeral=True)
+        if self.receiver.where:
+            return await interaction.response.send_message(f"현재 상대방이 {self.receiver.where}에 있어 거래할 수 없습니다.", ephemeral=True)
+
         await self.getItem()
         await interaction.response.send_message("데이터를 불러오는 중이에요!")
         await self.setup(interaction)
 
     class setupView(ui.View):
-        def __init__(self, parent: 'tradeItem'):
+        def __init__(self, parent: 'TradeItem'):
             super().__init__(timeout=None)
             self.parent = parent
 
@@ -2362,17 +2496,17 @@ class tradeItem:
                 if interaction.data['values'][0] == "money":
                     await interaction.response.send_modal(self.moneyModal(self, self.parent.offer))
                 else:
-                    await interaction.response.send_message(view=self.itemView(self, interaction.data['values'][0], self.parent.offer.item))
+                    await interaction.response.send_message(view=self.itemView(self, interaction.data['values'][0], self.parent.offer), ephemeral=True)
             elif interaction.user.id == self.parent.receiver.id:
                 if interaction.data['values'][0] == "money":
                     await interaction.response.send_modal(self.moneyModal(self, self.parent.receiver))
                 else:
-                    await interaction.response.send_message(view=self.itemView(self, interaction.data['values'][0], self.parent.receiver.item))
+                    await interaction.response.send_message(view=self.itemView(self, interaction.data['values'][0], self.parent.receiver), ephemeral=True)
             else:
                 return await interaction.response.send_message("거래 당사자만 사용 가능합니다.", ephemeral=True)
 
         class moneyModal(ui.Modal):
-            def __init__(self, parent: 'tradeItem.setupView', user: User):
+            def __init__(self, parent: 'TradeItem.setupView', user: User):
                 super().__init__(
                     title=f"보유 골드 : {format(user.userInfo['money'],',')}", timeout=None)
                 self.parent = parent
@@ -2381,24 +2515,106 @@ class tradeItem:
                 label="거래할 돈", placeholder="거래할 돈을 적어주세요.", default=0, required=True)
 
             async def on_submit(self, interaction: Interaction):
-
-                return await super().on_submit(interaction)
+                if not self.answer.value.isdigit():
+                    await interaction.response.send_message(content="숫자를 적어주세요.", ephemeral=True)
+                    return
+                if int(self.answer.value) < 0:
+                    await interaction.response.send_message(cotnent="0보다 작을수 없습니다.", ephemeral=True)
+                    return
+                if self.user.id == self.parent.parent.receiver.id:
+                    self.parent.parent.receiver.offer_item['gold'] = int(
+                        self.answer.value)
+                else:
+                    self.parent.parent.offer.offer_item['gold'] = int(
+                        self.answer.value)
+                self.parent.parent.offer.ready = False
+                self.parent.parent.receiver.ready = False
+                await interaction.response.edit_message(content="", embed=await self.parent.parent.getSetupEmbed(), view=self.parent)
 
         class itemView(ui.View):
-            def __init__(self, parent: 'tradeItem.setupView', category: str, item: typing.Union[dict, list]):
+            def __init__(self, parent: 'TradeItem.setupView', category: str, user: User):
                 super().__init__(timeout=None)
                 self.parent = parent
                 self.category = category
-                self.item = item
+                self.page = 0
+                self.user = user
+                self.make_select()
 
-            def classifierItem(self):
-                pass
+            def make_select(self):
+                items = list_chunk(self.user.item[self.category], 10)
+                if not items:
+                    items = [[]]
+                options = []
+                disabled = False
+                for i in items[self.page]:
+                    if self.category == "wear" or self.category == "weapon":
+                        info = wear[i[1]
+                                    ] if self.category == "wear" else weapon[i[1]]
+                        options.append(SelectOption(
+                            label=f"[{i[0]}] [{i[3]}]{info['name']} +{i[2]}", description=info['collection'] if self.category == "wear" else '', value=i[0]))
+                    elif self.category == "util" or self.category == "use":
+                        info = util[str(i[0])]
+                        options.append(SelectOption(
+                            label=f"[{i[0]}] {i[1]} {i[2]}개 보유중", description=info['description'], value=i[0]))
+                    else:
+                        info = title[i[1]]
+                        options.append(SelectOption(
+                            label=f"[{i[0]}] {info['name']}", description=info['description'], value=i[0]))
+                if self.page > 0:
+                    options.append(SelectOption(label="이전페이지", value="prev"))
+                if len(items) > self.page+1:
+                    options.append(SelectOption(label="다음페이지", value="next"))
+                options.append(SelectOption(label="나가기", value="exit"))
+                select = ui.Select(options=options, disabled=disabled)
+                self.add_item(select)
+                select.callback = self.select_callback
+
+            async def select_callback(self, interaction: Interaction):
+                key = interaction.data['values'][0]
+                if key == "next":
+                    self.page += 1
+                    return await interaction.response.edit_message(view=self)
+                if key == "prev":
+                    self.page -= 1
+                    return await interaction.response.edit_message(view=self)
+                if key == "exit":
+                    await interaction.response.edit_message(content="나갑니다.")
+                    return await interaction.delete_original_response()
+
+            async def offer_handle(self):
+                if self.category == "util" or self.category == "use":
+                    pass
+                else:
+                    pass
 
     async def setup(self, interaction: Interaction):
         try:
             await interaction.response.edit_message(content="", embed=await self.getSetupEmbed(), view=self.setupView(self))
         except discord.errors.InteractionResponded:
             await interaction.edit_original_response(content="", embed=await self.getSetupEmbed(), view=self.setupView(self))
+
+
+class Raid(Mining):
+    def __init__(self, boss: dict, max_user: int, interaction: Interaction, user: User):
+        self.boss = boss
+        self.users = [user]
+        self.max_user = max_user
+        self.interaction = interaction
+
+    async def validity(self):
+        if self.users[0].where:
+            return await self.interaction.response.send_message(f"현재 {self.users[0].where}에 있어 인벤토리를 쓸수 없습니다.", ephemeral=True)
+        else:
+            self.users[0].where = "레이드"
+
+    async def matchingEmbed(self):
+        embed = discord.Embed(
+            title=f"{self.boss['name']} 매칭 ({len(self.users)}/{self.max_user})")
+        embed.add_field(
+            name=f"파티장 : {self.users[0].userInfo['nickname']}", value="")
+
+    async def matchingSetup(self):
+        pass
 
 
 async def authorizeUser(user: User, interaction: Interaction):
@@ -2408,7 +2624,7 @@ async def authorizeUser(user: User, interaction: Interaction):
     return False
 
 
-@ tree.command(name="정보", description="정보")
+@tree.command(name="정보", description="정보")
 async def info(interaction: Interaction):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2424,7 +2640,7 @@ async def info(interaction: Interaction):
     await interaction.edit_original_response(content="", attachments=[image], view=view(timeout=None))
 
 
-@ tree.command(name="인벤토리", description="인벤토리")
+@tree.command(name="인벤토리", description="인벤토리")
 async def inventory(interaction: Interaction):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2432,7 +2648,7 @@ async def inventory(interaction: Interaction):
     await Inventory(user, interaction).validity()
 
 
-@ tree.command(name="경험치획득량변경", description="운영자전용명령어")
+@tree.command(name="경험치획득량변경", description="운영자전용명령어")
 async def exp_up(interaction: Interaction, 배율: float):
     if User(interaction.user.id).userInfo['role'] == 99:
         global EXP_EARN
@@ -2440,7 +2656,7 @@ async def exp_up(interaction: Interaction, 배율: float):
         await interaction.response.send_message(f"성공적으로 {배율}배율로 조정 되었습니다.", ephemeral=True)
 
 
-@ tree.command(name="골드획득량변경", description="운영자전용명령어")
+@tree.command(name="골드획득량변경", description="운영자전용명령어")
 async def gold_up(interaction: Interaction, 배율: float):
     if User(interaction.user.id).userInfo['role'] == 99:
         global MONEY_EARN
@@ -2448,7 +2664,7 @@ async def gold_up(interaction: Interaction, 배율: float):
         await interaction.response.send_message(f"성공적으로 {배율}배율로 조정 되었습니다.", ephemeral=True)
 
 
-@ tree.command(name="현재획득량확인", description="경험치, 골드 획득량을 확인할수 있습니다.")
+@tree.command(name="현재획득량확인", description="경험치, 골드 획득량을 확인할수 있습니다.")
 async def show_exp_gold_up(interaction: Interaction):
     await interaction.response.send_message(content=f"경험치 획득량: {EXP_EARN}배\n골드 획득량: {MONEY_EARN}배", ephemeral=True)
 
@@ -2479,10 +2695,10 @@ async def offerTrade(interaction: Interaction, 유저: discord.User):
     receiver = User(유저.id)
     if await authorizeUser(receiver, interaction):
         return
-    await tradeItem(offer, receiver).validity(interaction)
+    await TradeItem(offer, receiver).validity(interaction)
 
 
-@ tree.command(name="스텟", description="스텟 올리기")
+@tree.command(name="스텟", description="스텟 올리기")
 async def stat(interaction: Interaction, 스텟: statEnum, 포인트: int):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2493,7 +2709,7 @@ async def stat(interaction: Interaction, 스텟: statEnum, 포인트: int):
     await interaction.response.send_message(message, ephemeral=True)
 
 
-@ tree.command(name="기타아이템넣기", description="운영자 전용 명령어")
+@tree.command(name="기타아이템넣기", description="운영자 전용 명령어")
 async def put_util(interaction: Interaction, 아이디: str, 코드: int, 개수: int):
     user = User(아이디)
     if await authorizeUser(user, interaction):
@@ -2502,7 +2718,7 @@ async def put_util(interaction: Interaction, 아이디: str, 코드: int, 개수
     await interaction.response.send_message(f"{user.userInfo['nickname']}님에게 {util[str(코드)]['name']}을 {개수}개 지급했습니다.", ephemeral=True)
 
 
-@ tree.command(name="퀘스트", description="퀘스트입니다.")
+@tree.command(name="퀘스트", description="퀘스트입니다.")
 async def qeust(interaction: Interaction):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2527,8 +2743,10 @@ async def qeust(interaction: Interaction):
             await interaction.response.edit_message(attachments=[image])
 
         @ ui.button(label="주간", emoji="📅")
-        async def weekly_quest(interaction: Interaction, button: ui.Button):
-            pass
+        async def weekly_quest(self, interaction: Interaction, button: ui.Button):
+            self.type = "weekly"
+            image = await quest.getQuest(self.type)
+            await interaction.response.edit_message(attachments=[image])
 
         @ ui.button(emoji="⬅", row=2, style=ButtonStyle.blurple)
         async def previous_page(self, interaction: Interaction, button: ui.Button):
@@ -2569,7 +2787,7 @@ async def qeust(interaction: Interaction):
     await interaction.response.send_message(file=await quest.getQuest("normal"), view=questView(), ephemeral=True)
 
 
-@ tree.command(name="퀘스트생성", description="운영자 전용 명령어")
+@tree.command(name="퀘스트생성", description="운영자 전용 명령어")
 async def make_quest(interaction: Interaction, 아이디: str, 키: int, 타입: questTypeEnum):
     if User(interaction.user.id).userInfo['role'] == 99:
         user = User(아이디)
@@ -2580,7 +2798,7 @@ async def make_quest(interaction: Interaction, 아이디: str, 키: int, 타입:
         await interaction.response.send_message(f"권한이 없습니다.", ephemeral=True)
 
 
-@ tree.command(name="강화", description="강화소")
+@tree.command(name="강화", description="강화소")
 async def reinforcement(interaction: Interaction, 부위: reinEnum):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2590,7 +2808,7 @@ async def reinforcement(interaction: Interaction, 부위: reinEnum):
     await reinforce.validity()
 
 
-@ tree.command(name="채광", description="채광")
+@tree.command(name="채광", description="채광")
 async def mining(interaction: Interaction, 광산: miningEnum):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
@@ -2599,7 +2817,7 @@ async def mining(interaction: Interaction, 광산: miningEnum):
     await mine.validity()
 
 
-@ tree.command(name="제작소", description="아이템 제작")
+@tree.command(name="제작소", description="아이템 제작")
 async def makeItem(interaction: Interaction):
     user = User(interaction.user.id)
     if await authorizeUser(user, interaction):
