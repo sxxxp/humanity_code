@@ -399,16 +399,18 @@ class MyClient(discord.Client):
         global EXP_EARN, MONEY_EARN
         EXP_EARN = 1
         MONEY_EARN = 1
-
-    async def makeDailyQuest(self):
-        pass
+        await self.giveDailyQuest()
 
     async def giveDailyQuest(self):
         cur = con.cursor()
         cur.execute("SELECT id FROM user_info")
-        userId: tuple[int] = cur.fetchall()  # type: ignore
+        userId: tuple[tuple[int]] = cur.fetchall()  # type: ignore
+        cur.execute("DELETE FROM quest WHERE quest_type = daily")
         for i in userId:
-            Quest(User(i))
+            for key in random.sample(list(quest['daily'].keys()), 3):
+                await Quest(User(i[0])).makeQuest('daily', key)
+        con.commit()
+        cur.close()
 
 
 EXP_EARN = 1
@@ -563,11 +565,17 @@ class User:
         await self.isExistItem(code)
         cur.execute(
             "UPDATE user_item SET amount = amount + %s WHERE item_id = %s AND id = %s", (cnt, code, self.id))
-        if cnt > 0 and type == 'normal':
-            cur.execute(
-                "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = 'item'", (cnt, self.id))
-            cur.execute(
-                "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = %s", (cnt, self.id, code))
+        if cnt > 0:
+            if type == 'normal':
+                cur.execute(
+                    "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = 'item'", (cnt, self.id))
+                cur.execute(
+                    "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'get' AND code = %s", (cnt, self.id, code))
+            elif type == 'make-util':
+                cur.execute(
+                    "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'make-util' AND code = 'any'", (cnt, self.id))
+                cur.execute(
+                    "UPDATE quest SET now = now + %s WHERE id = %s AND `type` = 'make-util' AND code = %s", (cnt, self.id, code))
         con.commit()
         cur.close()
 
@@ -863,7 +871,7 @@ class Quest:
         self.quest = []
 
     async def questInfo(self, type: str, code: str, amount: int):
-        text="error"
+        text = "error"
         if type == "kill":
             if code == "any":
                 text = f"아무 광석 {amount}회 처치"
@@ -907,9 +915,17 @@ class Quest:
                 text = f"{amount}골드 사용하기"
         elif type == "make-wear":
             text = f"{code} {amount}회 제작하기"
+        elif type == "make-util":
+            if code == "any":
+                text = f"아무 기타아이템 {amount}개 제작하기"
+            else:
+                text = f"{util[code]['name']} {amount}개 제작하기"
+        elif type == "make-use":
+            if code == "any":
+                text = f"아무 소비아이템 {amount}개 제작하기"
         elif type == "entrance":
             text = f"{code} {amount}회 입장하기"
-        
+
         return text
 
     async def getQuest(self, type: str):
@@ -954,6 +970,10 @@ class Quest:
             return discord.File(fp=image_binary, filename="normalQuest.png")
 
     async def makeQuest(self, type: str, key: str):
+        '''
+        type : `quest_type`
+        key : `quest_key`
+        '''
         quest_info: dict = quest[type][key]
         cur = con.cursor()
         cur.execute("DELETE FROM quest WHERE id = %s AND `key` = %s AND quest_type = %s",
@@ -1927,7 +1947,8 @@ class MakeItem:
                     for i in range(self.parent.amount):
                         if getSuccess(data['percent'], 100):
                             amount += 1
-                    await self.parent.parent.user.getItem(data['code'], amount)
+                    make_type = "make-" + "util" if self.parent.parent.category == 'item' else "use"
+                    await self.parent.parent.user.getItem(data['code'], amount, make_type)
                     total_amount = self.parent.amount
                     self.parent.amount = 1
                     embed = await self.parent.getItemEmbed(self.parent.key)

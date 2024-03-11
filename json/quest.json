@@ -142,7 +142,7 @@
       "use": "",
       "weapon": "",
       "wear": "",
-      "description": "/채광 명령어를 통해 아무 광석을 5개 채광하세요!",
+      "description": "아무 광석을 5개 채광하세요!",
       "next": ""
     },
     "2": {
@@ -157,6 +157,31 @@
       "wear": "",
       "description": "골드를 획득해 보세요!",
       "next": ""
+    },
+    "3": {
+      "type": "spend",
+      "code": "gold",
+      "amount": "level 150*",
+      "gold": "level 50*",
+      "exp": "level 5%",
+      "util": "3-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "골드를 사용해 보세요!",
+      "next": ""
+    },
+    "4": {
+      "type": "make-util",
+      "code": "any",
+      "amount": 5,
+      "gold": "level 50*",
+      "exp": "level 3%",
+      "util": "3-10",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "아무 기타 아이템을 만들어 보세요!"
     }
   }
 }
