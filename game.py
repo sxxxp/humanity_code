@@ -407,8 +407,9 @@ class MyClient(discord.Client):
         userId: tuple[tuple[int]] = cur.fetchall()  # type: ignore
         cur.execute("DELETE FROM quest WHERE quest_type = daily")
         for i in userId:
+            user = User(i[0])
             for key in random.sample(list(quest['daily'].keys()), 3):
-                await Quest(User(i[0])).makeQuest('daily', key)
+                await Quest(user).makeQuest('daily', key)
         con.commit()
         cur.close()
 
@@ -612,8 +613,11 @@ class User:
 
     async def getEntrance(self, floor: str):
         cur = con.cursor()
+
         cur.execute(
             "UPDATE quest SET now = now +1 WHERE id = %s AND code = %s AND `type` = 'entrance'", (self.id, floor))
+        cur.execute(
+            "UPDATE quest SET now = now +1 WHERE id = %s AND code = 'any' AND `type` = 'entrance'", (self.id, floor))
         con.commit()
         cur.close()
 
@@ -924,8 +928,10 @@ class Quest:
             if code == "any":
                 text = f"아무 소비아이템 {amount}개 제작하기"
         elif type == "entrance":
-            text = f"{code} {amount}회 입장하기"
-
+            if code == "any":
+                text = f"아무 광산 {amount}회 입장하기"
+            else:
+                text = f"{code} {amount}회 입장하기"
         return text
 
     async def getQuest(self, type: str):
@@ -2618,23 +2624,40 @@ class TradeItem:
 class Raid(Mining):
     def __init__(self, boss: dict, max_user: int, interaction: Interaction, user: User):
         self.boss = boss
-        self.users = [user]
+        self.users: list[User] = [user]
         self.max_user = max_user
         self.interaction = interaction
 
     async def validity(self):
         if self.users[0].where:
-            return await self.interaction.response.send_message(f"현재 {self.users[0].where}에 있어 인벤토리를 쓸수 없습니다.", ephemeral=True)
+            return await self.interaction.response.send_message(f"현재 {self.users[0].where}에 있어 레이드 기능을 쓸 수 없습니다.", ephemeral=True)
         else:
             self.users[0].where = "레이드"
+            await self.user.getEntrance(self.floor.name)
+            await self.matchingSetup(self.interaction)
 
     async def matchingEmbed(self):
         embed = discord.Embed(
             title=f"{self.boss['name']} 매칭 ({len(self.users)}/{self.max_user})")
         embed.add_field(
-            name=f"파티장 : {self.users[0].userInfo['nickname']}", value="")
+            name=f"파티장 : {self.users[0].userInfo['nickname']}", value="\u200b", inline=True)
 
-    async def matchingSetup(self):
+    class matchingView(ui.View):
+        def __init__(self, parent: 'Raid'):
+            super().__init__(timeout=None)
+            self.parent = parent
+
+        @ui.button(label="파티 참가", style=ButtonStyle.green)
+        async def join_button(self, interaction: Interaction, button: ui.Button):
+            if self.parent.max_user <= len(self.parent.users):
+                return await interaction.response.send_message("파티 인원이 가득 찼습니다.", ephemeral=True)
+            self.parent.users.append(User(interaction.user.id))
+
+        @ui.button(label="파티 탈퇴", style=ButtonStyle.danger)
+        async def leave_button(self, inteaction: Interaction, button: ui.Button):
+            pass
+
+    async def matchingSetup(self, interaction: Interaction):
         pass
 
 

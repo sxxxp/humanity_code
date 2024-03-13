@@ -181,7 +181,20 @@
       "use": "",
       "weapon": "",
       "wear": "",
-      "description": "아무 기타 아이템을 만들어 보세요!"
+      "description": "아무 기타 아이템을 5개 만들어 보세요!",
+      "next": ""
+    },
+    "5": {
+      "type": "entrance",
+      "code": "any",
+      "amount": 3,
+      "gold": "level 25*",
+      "exp": "level 3%",
+      "use": "",
+      "weapon": "",
+      "wear": "",
+      "description": "아무 광산이나 3번 입장해 보세요!",
+      "next": ""
     }
   }
 }
