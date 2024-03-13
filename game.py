@@ -27,6 +27,33 @@ STAT_PER_LEVEL = 2
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
+# class userStatType(typing.TypedDict):
+# power: float
+# hp: float
+# str: float
+# str_stat: int
+# power_stat: int
+# power_else: float
+# hp_stat: int
+# crit_damage_stat: int
+# damage: int
+# crit: int
+# crit_damage: int
+# maxhp: float
+# point: int
+
+
+class userInfoType(typing.TypedDict):
+    nickname: str
+    exp: int
+    level: int
+    rebirth: int
+    money: int
+    mooroong: int
+    role: int
+    title: str
+
+
 class reinEnum(Enum):
     '''
     강화 part 열거형
@@ -138,7 +165,7 @@ def getStatus(id: int):
     -----------------
     - id: 유저 아이디
 
-    `return {'power': 0, 'hp': 25, "str": 0, "str_stat": 0, "power_stat": 0, "power_else": 0, "hp_stat": 0, "crit_damage_stat": 0, 'damage': 0, 'crit': 0, 'crit_damage': 0, 'maxhp': 0, 'point': 0, 'title': ''}`
+    `return {'power': 0, 'hp': 25, "str": 0, "str_stat": 0, "power_stat": 0, "power_else": 0, "hp_stat": 0, "crit_damage_stat": 0, 'damage': 0, 'crit': 0, 'crit_damage': 0, 'maxhp': 0, 'point': 0}`
     '''
     cur = con.cursor()
     # 갑옷 힘,체력,중량 불러오기
@@ -205,22 +232,22 @@ def getStatus(id: int):
                 else:
                     value = int(value)
 
-            final[key] += value
+            final[key] += value  # type: ignore
     final['maxhp'] = final['hp']
-    final['power'] = float(final['power'])
-    final['cur_power'] = final['power']
-    final['def'] = float(final['def'])
-    final['cur_def'] = final['def']
+    final['power'] = float(final['power'])  # type: ignore
+    final['cur_power'] = final['power']  # type: ignore
+    final['def'] = float(final['def'])  # type: ignore
+    final['cur_def'] = final['def']  # type: ignore
     if final['damage'] == 0:
         final['damage'] = 1
-    final['damage'] = float(final['damage'])
-    final['cur_damage'] = final['damage']
+    final['damage'] = float(final['damage'])  # type: ignore
+    final['cur_damage'] = final['damage']  # type: ignore
     final['cur_crit'] = final['crit']
     final['cur_avoid'] = final['avoid']
     final['cur_mana'] = final['mana']
-    final['str'] = float(final['str'])
-    final['crit_damage'] = float(final['crit_damage'])
-    final['cur_crit_damage'] = final['crit_damage']
+    final['str'] = float(final['str'])  # type: ignore
+    final['crit_damage'] = float(final['crit_damage'])  # type: ignore
+    final['cur_crit_damage'] = final['crit_damage']  # type: ignore
     cur.close()
     return final
 
@@ -317,7 +344,7 @@ def getPartRein(part: int):
     return parts[part]
 
 
-def getInfo(id: int):
+def getInfo(id: int) -> userInfoType:
     """
     유저 정보 불러오기
     -----------------
@@ -337,7 +364,7 @@ def getInfo(id: int):
         info['title'] = title[key[0]]['name']
     else:
         info['title'] = "칭호없음"
-    return info
+    return info  # type: ignore
 
 
 def list_chunk(lst: list, n: int):
@@ -865,6 +892,16 @@ class User:
         con.commit()
         cur.close()
         await self.sync_stat()
+
+
+async def authorizeUser(user: User, interaction: Interaction):
+    '''
+    # 유저 정보가 없다면 True 있다면 False
+    '''
+    if not user.stat or not user.userInfo:
+        await interaction.response.send_message("`캐릭터생성` 명령어를 통해 캐릭터를 생성해 주세요!", ephemeral=True)
+        return True
+    return False
 
 
 class Quest:
@@ -2640,7 +2677,10 @@ class Raid(Mining):
         embed = discord.Embed(
             title=f"{self.boss['name']} 매칭 ({len(self.users)}/{self.max_user})")
         embed.add_field(
-            name=f"파티장 : {self.users[0].userInfo['nickname']}", value="\u200b", inline=True)
+            name=f"파티장 : Lv. {self.users[0].userInfo['level']} {self.users[0].userInfo['nickname']}", value="\u200b", inline=True)
+        for user in self.users[1:]:
+            embed.add_field(
+                name=f"파티원 : Lv. {user.userInfo['level']} {user.userInfo['nickname']}", value="\u200b", inline=True)
 
     class matchingView(ui.View):
         def __init__(self, parent: 'Raid'):
@@ -2649,23 +2689,28 @@ class Raid(Mining):
 
         @ui.button(label="파티 참가", style=ButtonStyle.green)
         async def join_button(self, interaction: Interaction, button: ui.Button):
+            user = User(interaction.user.id)
+            if await authorizeUser(user, interaction):
+                return
             if self.parent.max_user <= len(self.parent.users):
                 return await interaction.response.send_message("파티 인원이 가득 찼습니다.", ephemeral=True)
-            self.parent.users.append(User(interaction.user.id))
+            self.parent.users.append(user)
+            await interaction.response.send_message("파티에 정상적으로 가입 되었습니다.", ephemeral=True)
 
         @ui.button(label="파티 탈퇴", style=ButtonStyle.danger)
-        async def leave_button(self, inteaction: Interaction, button: ui.Button):
-            pass
+        async def leave_button(self, interaction: Interaction, button: ui.Button):
+            user = User(interaction.user.id)
+            if await authorizeUser(user, interaction):
+                return
+            if user in self.parent.users:
+                self.parent.users.remove(user)
+                await interaction.response.send_message("정상적으로 파티에서 탈퇴 되었습니다.", ephemeral=True)
+
+            else:
+                await interaction.response.send_message("파티에 가입되지 않은 상태입니다.", ephemeral=True)
 
     async def matchingSetup(self, interaction: Interaction):
         pass
-
-
-async def authorizeUser(user: User, interaction: Interaction):
-    if not user.stat or not user.userInfo:
-        await interaction.response.send_message("`캐릭터생성` 명령어를 통해 캐릭터를 생성해 주세요!", ephemeral=True)
-        return True
-    return False
 
 
 @tree.command(name="정보", description="정보")
